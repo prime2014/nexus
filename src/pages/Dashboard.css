@@ -1,0 +1,351 @@
+/*
+ * Base Styling and Layout (Light Theme)
+ */
+.dashboard {
+    background-color: #f4f7f9; /* Very light blue-gray background */
+    color: #1f2937; /* Dark text */
+    min-height: 100vh;
+    padding: 2rem;
+    font-family: 'Inter', sans-serif;
+}
+
+h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: #1f2937;
+    border-bottom: 2px solid #e5e7eb; /* Light separator line */
+    padding-bottom: 0.5rem;
+}
+
+h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #374151;
+}
+
+/*
+ * Stats Row
+ */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.stat-card {
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Lighter shadow */
+    color: white; /* Keep text white for contrast on colored backgrounds */
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.stat-card h2 {
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    border-bottom: none;
+    padding-bottom: 0;
+    text-transform: uppercase;
+    color: white; /* Ensure header remains white */
+}
+
+.stat-card p {
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+/* Stat Card Colors (Kept vibrant for accents) */
+.stat-card.blue {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.stat-card.green {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.stat-card.purple {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+/*
+ * Device List Section
+ */
+.devices-section {
+    margin-bottom: 3rem;
+}
+
+.no-devices {
+    font-size: 1.1rem;
+    color: #6b7280;
+    background-color: #ffffff;
+    padding: 1rem;
+    border: 1px dashed #d1d5db;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.device-grid {
+    display: grid;
+    /* ADJUSTED: Increased min-width again to ensure the long VID/PID line fits */
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); 
+    gap: 1.5rem;
+}
+
+.device-card {
+    background-color: #ffffff; /* White background */
+    padding: 1.25rem;
+    border-radius: 10px;
+    border-left: 5px solid;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    border: 1px solid #e5e7eb;
+    
+    /* --- FIX: Enforce vertical stacking of content --- */
+    display: flex;
+    flex-direction: column;
+    /* Make the info block fill space before the button */
+    justify-content: space-between; 
+}
+
+.device-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.device-card.connected {
+    border-left-color: #10b981; /* Green */
+}
+
+.device-card.disconnected {
+    border-left-color: #f87171; /* Red */
+}
+
+.device-card.reading {
+    /* Highlight card when reading */
+    border-left-color: #3b82f6; 
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+}
+
+.device-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.device-name {
+    margin: 0;
+    font-size: 1.3rem;
+    color: #1f2937;
+    /* Ensure name doesn't wrap awkwardly */
+    flex-shrink: 1; 
+}
+
+/* New Block for Device Info */
+.device-info-block {
+    margin-bottom: 0.5rem;
+}
+
+.device-info {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+}
+
+/* Status Badge */
+.status-badge {
+    padding: 0.3rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    flex-shrink: 0; /* Prevents status badge from shrinking */
+    margin-left: 0.5rem;
+}
+
+.status-connected {
+    background-color: #d1fae5; /* Light green */
+    color: #059669; /* Dark green text */
+}
+
+.status-disconnected {
+    background-color: #fee2e2; /* Light red */
+    color: #dc2626; /* Dark red text */
+}
+
+.status-reading {
+    background-color: #bfdbfe; /* Light blue */
+    color: #2563eb; /* Dark blue text */
+}
+
+/* Button Styling (Assuming PrimeReact Button) */
+.p-button {
+    width: 100%;
+    /* ADJUSTED: Increased margin and padding for a larger, more dominant button */
+    margin-top: 1.5rem !important; 
+    padding: 0.75rem 1.25rem !important; 
+    font-size: 1.1rem !important; 
+    font-weight: 700 !important;
+    
+    /* Base color styles */
+    background-color: #3b82f6 !important;
+    border: 1px solid #3b82f6 !important;
+    color: white !important;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.p-button:hover {
+    background-color: #2563eb !important;
+    transform: translateY(-1px);
+}
+
+.p-button:focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5) !important;
+}
+
+/* Set specific severity colors for PrimeReact Button */
+.p-button-danger {
+    background-color: #ef4444 !important;
+    border-color: #ef4444 !important;
+}
+
+.p-button-danger:hover {
+    background-color: #dc2626 !important;
+    border-color: #dc2626 !important;
+}
+
+.p-button-success {
+    background-color: #10b981 !important;
+    border-color: #10b981 !important;
+}
+
+.p-button-success:hover {
+    background-color: #059669 !important;
+    border-color: #059669 !important;
+}
+
+/*
+ * Charts Section
+ */
+.charts-section {
+    margin-top: 3rem;
+}
+
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+.chart-card {
+    background-color: #ffffff; /* White background */
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    border: 1px solid #e5e7eb;
+}
+
+.chart-card h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    text-align: center;
+    color: #1f2937;
+}
+
+/* Recharts styling tweaks for light mode readability */
+.recharts-default-tooltip {
+    background-color: #ffffff !important;
+    border-color: #d1d5db !important;
+    color: #1f2937 !important;
+    border-radius: 6px;
+    padding: 0.5rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+    .dashboard {
+        padding: 1rem;
+    }
+    .stat-card p {
+        font-size: 2.5rem;
+    }
+    .device-grid {
+        /* Allow cards to take full width on small screens */
+        grid-template-columns: 1fr;
+    }
+    .chart-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+.console-panel {
+  margin-top: 2rem;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.console-panel h2 {
+  color: #fff;
+  font-size: 1.2rem;
+  margin-bottom: 0.75rem;
+}
+
+.console-output {
+  background: #111;
+  padding: 1rem;
+  height: 250px;          /* scrollable height */
+  overflow-y: auto;
+  border-radius: 6px;
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 0.9rem;
+  line-height: 1.4rem;
+}
+
+.console-line {
+  margin-bottom: 4px;
+  white-space: pre-wrap;
+}
+
+.console-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.clear-btn {
+  background: #ff5555;
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.clear-btn:hover {
+  background: #ff2222;
+}
+
+.console-line { color: #d4d4d4; }
+
+.on-line { color: #7CFC00; }         /* bright green */
+.off-line { color: #f8d568; }        /* yellowish */
+.done-line { color: #00e5ff; } 

@@ -1,0 +1,63 @@
+[package]
+name = "nexus"
+version = "0.1.0"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "nexus_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+rusb = "0.9"
+thiserror = "1"
+windows = { version = "0.58", features = [
+    "Win32_Devices_DeviceAndDriverInstallation",
+    "Win32_Foundation",
+    "Win32_System_LibraryLoader",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Devices_HumanInterfaceDevice",
+    "Win32_Devices_Usb",
+    "Win32_Devices_DeviceAndDriverInstallation",
+] }
+tokio = { version = "1.0", features = ["time", "rt"] }
+tokio-serial = "5.4"
+chrono = { version = "0.4", features = ["clock"] }
+time = { version = "0.3", features = ["macros", "formatting"] }
+anyhow = "1.0"
+log = "0.4"
+simplelog = "0.12"
+
+
+
+# Required for emitting events
+tauri-utils = "2.8.0"
+
+# Optional plugins (safe to add now or later)
+tauri-plugin-shell = "2.3.3"
+
+
+once_cell = "1.19"
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.37.0", features = ["bundled"] }
+dirs-next = "2.0"
+
+serialport = "4.8.1"
+tauri-plugin-device = "1.0.0"
+fs = "0.0.5"
+
+
