@@ -1,306 +1,3 @@
-// import React, { useState, useEffect } from "react";
-// import { useSelector } from "react-redux";
-// import { RootState } from "../store";
-// import {
-//   LineChart,
-//   Line,
-//   XAxis,
-//   YAxis,
-//   CartesianGrid,
-//   Tooltip,
-//   Legend,
-//   BarChart,
-//   Bar,
-//   AreaChart,
-//   Area,
-//   ResponsiveContainer,
-// } from "recharts";
-// import { Button } from "primereact/button";
-// import { invoke} from "@tauri-apps/api/core";
-// import { listen } from "@tauri-apps/api/event";
-// import "./Dashboard.css";
-// import toast, { Toaster } from 'react-hot-toast';
-
-// const sampleLine = [
-//   { time: "T1", value: 12 },
-//   { time: "T2", value: 19 },
-//   { time: "T3", value: 8 },
-//   { time: "T4", value: 15 },
-//   { time: "T5", value: 10 },
-// ];
-
-// const sampleBar = [
-//   { label: "Sensor A", readings: 15 },
-//   { label: "Sensor B", readings: 30 },
-//   { label: "Sensor C", readings: 10 },
-//   { label: "Sensor D", readings: 20 },
-// ];
-
-// const sampleArea = [
-//   { time: "1s", temp: 22 },
-//   { time: "2s", temp: 23 },
-//   { time: "3s", temp: 24 },
-//   { time: "4s", temp: 25 },
-//   { time: "5s", temp: 24 },
-//   { time: "6s", temp: 26 },
-// ];
-
-// interface Devices {
-//   portName: string | null
-// }
-
-// export default function Dashboard() {
-//   const { devices } = useSelector((state: RootState) => state.arduino);
-//   const readingsCount = 245; // static count for now
-//   const [activeReaders, setActiveReaders] = useState<Devices>({ portName: null });
-//   const [consoleLines, setConsoleLines] = useState<string[]>([]);
-//   const [readingPorts, setReadingPorts] = useState<Set<string>>(new Set());
-
-//   const consoleRef = React.useRef<HTMLDivElement>(null);
-
-//   useEffect(() => {
-//     if (consoleRef.current) {
-//       consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
-//     }
-//   }, [consoleLines]);
-  
-
-//   // Assuming this function is inside your React component,
-// // where activeReaders is state managed by useState:
-// // const [activeReaders, setActiveReaders] = useState({});
-
-//   useEffect(() => {
-//   const unlistenStart = listen("arduino-reading-started", (event) => {
-//     const { port } = event.payload as { port: string };
-//     setReadingPorts(prev => new Set(prev).add(port));
-//   });
-
-//   const unlistenStop = listen("arduino-reading-stopped", (event) => {
-//     const { port } = event.payload as { port: string };
-//     setReadingPorts(prev => {
-//       const next = new Set(prev);
-//       next.delete(port);
-//       return next;
-//     });
-//   });
-
-//   const unlistenDisconnect = listen("arduino-disconnected", (event) => {
-//     const { port } = event.payload as { port: string };
-//     setReadingPorts(prev => {
-//       const next = new Set(prev);
-//       next.delete(port);
-//       return next;
-//     });
-//   });
-
-//   return () => {
-//     unlistenStart.then(f => f());
-//     unlistenStop.then(f => f());
-//     unlistenDisconnect.then(f => f());
-//   };
-// }, []);
-
-
-//   const getTimestamp = () => {
-//     const now = new Date();
-//     const hours = String(now.getHours()).padStart(2, '0');
-//     const minutes = String(now.getMinutes()).padStart(2, '0');
-//     const seconds = String(now.getSeconds()).padStart(2, '0');
-//     const ms = String(now.getMilliseconds()).padStart(3, '0');
-//     return `${hours}:${minutes}:${seconds}.${ms}`;
-//   };
-
-//    useEffect(() => {
-//       const unlisten = listen<{ port: string; data: string }>("arduino-data", (event) => {
-//         const line = event.payload.data.trim();
-//         if (!line) return;
-
-//         const timestamp = getTimestamp();
-//         const timestampedLine = `[${timestamp}] ${line}`;
-
-//         // Match on the ORIGINAL line (without timestamp)
-//         const isVoltage = line.match(/Output Voltage \((ON|OFF)\): ([\d.]+) V/);
-//         const isComplete = line.includes("cycles completed");
-
-//         if (isVoltage || isComplete) {
-//           console.log(timestampedLine);
-//           setConsoleLines(prev => [...prev.slice(-100), timestampedLine]); // This adds it!
-//         }
-
-//         if (isComplete) {
-//           toast.success(line);
-//         }
-//       });
-
-//       return () => {
-//         unlisten.then(f => f());
-//       };
-//     }, []);
-
-//   const handleData = async (portName: string) => {
-//     const isReading = readingPorts.has(portName);
-
-//     if (isReading) {
-//       await invoke("stop_reading_from_port", { portName });
-//     } else {
-//       await invoke("start_reading_from_port", { portName, baudRate: 9600 });
-//     }
-//   };
-
-  
-
-//   return (
-//     <div className="dashboard">
-//       <Toaster />
-//       {/* === HEADER STATS === */}
-//       <div className="stats-row">
-//         <div className="stat-card blue">
-//           <h2>Total Readings</h2>
-//           <p>{readingsCount}</p>
-//         </div>
-//         <div className="stat-card green">
-//           <h2>Connected Devices</h2>
-//           <p>{devices.filter((d) => d.status === "connected").length}</p>
-//         </div>
-//         <div className="stat-card purple">
-//           <h2>All Devices</h2>
-//           <p>{devices.length}</p>
-//         </div>
-//       </div>
-
-//       {/* === DEVICE LIST === */}
-//       <div className="devices-section">
-//         <h2>Connected Devices</h2>
-//         {devices.length === 0 ? (
-//           <p className="no-devices">No devices detected. Plug one in!</p>
-//         ) : (
-//           <div className="device-grid">
-//             {devices.map((d) => (
-//               <div
-//                 key={d.port}
-//                 className={`device-card fade-in ${
-//                   d.status === "connected" ? "connected" : "disconnected"
-//                 }`}
-//               >
-//                   <div className="device-header">
-//                   <h3 className="device-name">{d.product || "Unknown Device"}</h3>
-//                   <span
-//                     className={`status-badge ${
-//                       d.status === "connected"
-//                         ? "status-connected"
-//                         : "status-disconnected"
-//                     }`}
-//                   >
-//                     {d.status}
-//                   </span>
-//                 </div>
-//                 <p className="device-info">
-//                   <strong>Port:</strong> {d.port}
-//                 </p>
-//                 <p className="device-info">
-//                   <strong>VID:</strong> 0x{d.vid.toString(16).toUpperCase()} |{" "}
-//                   <strong>PID:</strong> 0x{d.pid.toString(16).toUpperCase()}
-//                 </p>
-//                 <Button
-//                   onClick={() => handleData(d.port)}
-//                   disabled={readingPorts.has(d.port)}
-//                   label={readingPorts.has(d.port) ? "Reading..." : 'Acquire Data'}// Always enabled
-//                 />
-//               </div>
-//             ))}
-//           </div>
-//         )}
-//       </div>
-
-//       <div className="console-panel">
-//         <div className="console-header">
-//           <h2>Live Console</h2>
-//           <button
-//             className="clear-btn"
-//             onClick={() => setConsoleLines([])}
-//           >
-//             Clear
-//           </button>
-//         </div>
-
-//         <div className="console-output" ref={consoleRef}>
-//           {consoleLines.map((timestampedLine, i) => {
-//             // Extract original line for matching
-//             const originalLine = timestampedLine.replace(/^\[\d{2}:\d{2}:\d{2}\.\d{3}\]\s*/, '');
-
-//             let className = "console-line";
-
-//             if (originalLine.includes("ON")) className += " on-line";
-//             if (originalLine.includes("OFF")) className += " off-line";
-//             if (originalLine.includes("cycles completed")) className += " done-line";
-
-//             return <div key={i} className={className}>{timestampedLine}</div>;
-//           })}
-//         </div>
-//       </div>
-
-//       {/* === CHARTS GRID === */}
-//       <div className="charts-section">
-//         <h2>Data Overview</h2>
-//         <div className="chart-grid">
-//           {/* Line Chart */}
-//           <div className="chart-card">
-//             <h3>Sensor Trends</h3>
-//             <ResponsiveContainer width="100%" height={250}>
-//               <LineChart data={sampleLine}>
-//                 <CartesianGrid strokeDasharray="3 3" />
-//                 <XAxis dataKey="time" />
-//                 <YAxis />
-//                 <Tooltip />
-//                 <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} />
-//               </LineChart>
-//             </ResponsiveContainer>
-//           </div>
-
-//           {/* Bar Chart */}
-//           <div className="chart-card">
-//             <h3>Readings per Device</h3>
-//             <ResponsiveContainer width="100%" height={250}>
-//               <BarChart data={sampleBar}>
-//                 <CartesianGrid strokeDasharray="3 3" />
-//                 <XAxis dataKey="label" />
-//                 <YAxis />
-//                 <Tooltip />
-//                 <Bar dataKey="readings" fill="#10b981" radius={[8, 8, 0, 0]} />
-//               </BarChart>
-//             </ResponsiveContainer>
-//           </div>
-
-//           {/* Area Chart */}
-//           <div className="chart-card">
-//             <h3>Temperature Variation</h3>
-//             <ResponsiveContainer width="100%" height={250}>
-//               <AreaChart data={sampleArea}>
-//                 <defs>
-//                   <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
-//                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
-//                     <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-//                   </linearGradient>
-//                 </defs>
-//                 <CartesianGrid strokeDasharray="3 3" />
-//                 <XAxis dataKey="time" />
-//                 <YAxis />
-//                 <Tooltip />
-//                 <Area
-//                   type="monotone"
-//                   dataKey="temp"
-//                   stroke="#6366f1"
-//                   fillOpacity={1}
-//                   fill="url(#colorTemp)"
-//                 />
-//               </AreaChart>
-//             </ResponsiveContainer>
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
 // src/components/Dashboard.tsx
 import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
@@ -324,6 +21,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import "./Dashboard.css";
 import toast, { Toaster } from "react-hot-toast";
+import { SaveDataModal } from "../components/Modal";
+import { useDoctor } from "../context/DoctorContext";
+import { Link, useNavigate } from "react-router-dom";
 
 const sampleLine = [
   { time: "T1", value: 12 },
@@ -349,12 +49,47 @@ const sampleArea = [
   { time: "6s", temp: 26 },
 ];
 
+interface PatientForm {
+    admission_no: string;
+    national_id: string;
+    firstname: string;
+    lastname: string;
+    contact_person: string;
+    telephone_1: string;
+    telephone_2: string;
+    classification: "inpatient" | "outpatient";
+    diabetes_test: number | null,
+    doctor_in_charge: string;
+    sample_type: "normal" | "cancer" | "";
+}
+
 export default function Dashboard() {
   const { devices } = useSelector((state: RootState) => state.arduino);
+  const [patientCount, setPatientCount] = useState<number | null>(null);
   const [consoleLines, setConsoleLines] = useState<string[]>([]);
+  const [sugarContent, setSugarContent] = useState<number | null>(null);
   const [readingPorts, setReadingPorts] = useState<Set<string>>(new Set());
+  const navigate = useNavigate();
+
+  const [normalCellReadings, setNormalCellReadings] = useState<number[]>([]);
+  const [cancerCellReadings, setCancerCellReadings] = useState<number[]>([]);
 
   const consoleRef = useRef<HTMLDivElement>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState<PatientForm>({
+    admission_no: "",
+    national_id: "",
+    firstname: "",
+    lastname: "",
+    contact_person: "",
+    telephone_1: "",
+    telephone_2: "",
+    classification: "outpatient",
+    diabetes_test: null,
+    doctor_in_charge: "",
+    sample_type: "normal"
+  });
+  const [isSaving, setIsSaving] = useState(false);
 
   /* ------------------------------------------------------------------ */
   /* 1. AUTO-SCROLL CONSOLE                                            */
@@ -365,6 +100,31 @@ export default function Dashboard() {
     }
   }, [consoleLines]);
 
+  const handleSampleTypeChange = (type: "normal" | "cancer") => {
+    setFormData(prev => ({ ...prev, sample_type: type }));
+  };
+
+  useEffect(() => {
+    const fetchPatientCount = async () => {
+      try {
+        // Invoke the new Rust command
+        const count = await invoke<number>("get_patient_count");
+        setPatientCount(count);
+      } catch (err) {
+        console.error("Failed to fetch patient count:", err);
+        // Optionally show a toast error
+      }
+    };
+
+    fetchPatientCount();
+  }, []);
+
+
+  const handleViewPatients = () => {
+    navigate("/patients"); // Navigate to the new patient list route
+  };
+
+
   /* ------------------------------------------------------------------ */
   /* 2. LISTEN TO TAURI STATE EVENTS                                   */
   /* ------------------------------------------------------------------ */
@@ -372,8 +132,16 @@ export default function Dashboard() {
     let unlistenStart: UnlistenFn | undefined;
     let unlistenStop: UnlistenFn | undefined;
     let unlistenDisconnect: UnlistenFn | undefined;
+    let unlistenTimeout: UnlistenFn | undefined;
 
     (async () => {
+
+      const unlistenTimeout = listen<{ port: string; message: string }>("arduino-timeout", (e) => {
+        toast.error(`Timeout on ${e.payload.port}\n${e.payload.message}`, {
+          duration: 6000,
+        });
+      });
+
       unlistenStart = await listen<{ port: string }>("arduino-reading-started", (e) => {
         setReadingPorts((prev) => new Set(prev).add(e.payload.port));
       });
@@ -402,6 +170,7 @@ export default function Dashboard() {
       unlistenStart?.();
       unlistenStop?.();
       unlistenDisconnect?.();
+      unlistenTimeout?.();
     };
   }, []);
 
@@ -437,6 +206,8 @@ export default function Dashboard() {
       // --- Cycle complete (toast + UI) ---
       unlistenCycle = await listen<{ port: string }>("arduino-cycle-complete", (e) => {
         toast.success(`Cycle complete on ${e.payload.port}`);
+
+       
       });
     })();
 
@@ -445,6 +216,9 @@ export default function Dashboard() {
       unlistenCycle?.();
     };
   }, []);
+
+  const openPopup = () => setShowModal(true)
+  
 
   /* ------------------------------------------------------------------ */
   /* 4. BUTTON HANDLER                                                 */
@@ -463,6 +237,66 @@ export default function Dashboard() {
     }
   };
 
+  const handleSave = async () => {
+
+    setIsSaving(true);
+    
+    try {
+
+      let cancer_test = {
+        voltage_off : extractOffVoltages(consoleLines)
+      }
+
+      let normal_test = {
+        voltage_off: normalCellReadings
+      }
+
+      
+      let data = { ...formData, cancer_test }
+      console.log(data)
+      // Store via Tauri backend or API
+      delete (data as any).sample_type;
+      await invoke("save_patient_with_admission", { data });
+
+      console.log(data)
+
+      toast.success("Saved!");
+      setConsoleLines([])
+      setSugarContent(null)
+      setFormData({
+        admission_no: "",
+        national_id: "",
+        firstname: "",
+        lastname: "",
+        contact_person: "",
+        telephone_1: "",
+        telephone_2: "",
+        classification: "outpatient",
+        diabetes_test: null,
+        doctor_in_charge: "",
+        sample_type: "normal"
+      })
+
+      setShowModal(false);
+    } catch (err: any) {
+      
+      toast.error(err.message || `Failed to save: ${err}`);
+    }
+
+    setIsSaving(false);
+  };
+
+  const extractOffVoltages = (lines: string[]) => {
+    const regex = /Output Voltage \(OFF\):\s*([0-9]*\.[0-9]+)/;
+
+    return lines
+      .map(line => {
+        const match = line.match(regex);
+        return match ? Number.parseFloat(match[1]) : null;
+      })
+      .filter(v => v !== null);
+  }
+
   /* ------------------------------------------------------------------ */
   /* 5. RENDER                                                         */
   /* ------------------------------------------------------------------ */
@@ -472,15 +306,28 @@ export default function Dashboard() {
 
       {/* ----- HEADER STATS ----- */}
       <div className="stats-row">
-        <div className="stat-card blue">
+        <div 
+          className="ds-stat-card yellow clickable" // Added 'clickable' class for styling
+          onClick={handleViewPatients} // Attach the navigation handler
+        >
+          <h2>Total Patients</h2>
+          {/* Display the fetched count or a placeholder */}
+          <p>{patientCount ?? '...'}</p> 
+          <Link to="/patients" style={{ textDecoration: "none", color: "white" }}>
+            View Patients <span className="pi pi-arrow-right"></span>
+          </Link>
+        </div>
+
+
+        <div className="ds-stat-card blue">
           <h2>Total Readings</h2>
           <p>245</p>
         </div>
-        <div className="stat-card green">
+        <div className="ds-stat-card green">
           <h2>Connected Devices</h2>
           <p>{devices.filter((d) => d.status === "connected").length}</p>
         </div>
-        <div className="stat-card purple">
+        <div className="ds-stat-card purple">
           <h2>All Devices</h2>
           <p>{devices.length}</p>
         </div>
@@ -488,130 +335,52 @@ export default function Dashboard() {
 
       {/* ----- DEVICE LIST ----- */}
       <div className="devices-section">
-        <h2>Connected Devices</h2>
+        <h2>All Devices</h2>
         {devices.length === 0 ? (
           <p className="no-devices">No devices detected. Plug one in!</p>
         ) : (
           <div className="device-grid">
-            {devices.map((d) => (
-              <div
-                key={d.port}
-                className={`device-card fade-in ${
-                  d.status === "connected" ? "connected" : "disconnected"
-                }`}
-              >
-                <div className="device-header">
-                  <h3 className="device-name">{d.product || "Unknown Device"}</h3>
-                  <span
-                    className={`status-badge ${
-                      d.status === "connected" ? "status-connected" : "status-disconnected"
-                    }`}
-                  >
-                    {d.status}
-                  </span>
-                </div>
+            {devices.map((d) => (
+              <div
+                key={d.port}
+                className={`device-card fade-in ${
+                  d.status === "connected" ? "connected" : "disconnected"
+                }`}
+                
+              >
+                <div className="device-header">
+                  <h3 className="device-name">{d.custom_name || d.product || "Unknown Device"}</h3>
+                  <span
+                    className={`status-badge ${
+                      d.status === "connected" ? "status-connected" : "status-disconnected"
+                    }`}
+                  >
+                    {d.status}
+                  </span>
+                </div>
 
-                <p className="device-info">
-                  <strong>Port:</strong> {d.port}
-                </p>
-                <p className="device-info">
-                  <strong>VID:</strong> 0x{d.vid.toString(16).toUpperCase()} |{" "}
-                  <strong>PID:</strong> 0x{d.pid.toString(16).toUpperCase()}
-                </p>
+                <p className="device-info">
+                  <strong>Port:</strong> {d.port}
+                </p>
+                <p className="device-info">
+                  <strong>VID:</strong> 0x{d.vid.toString(16).toUpperCase()} |{" "}
+                  <strong>PID:</strong> 0x{d.pid.toString(16).toUpperCase()}
+                </p>
 
-                <Button
-                  onClick={() => handleData(d.port)}
-                  disabled={readingPorts.has(d.port)}
-                  label={readingPorts.has(d.port) ? "Reading..." : "Acquire Data"}
-                  className="p-button-sm"
-                />
-              </div>
-            ))}
-          </div>
+                {d.status == "connected" ? <Button
+                  onClick={d.status === "connected" ? () => navigate(`/device/${d.port}`) : undefined}
+                  // FIX: Disable if reading is active OR if the device is disconnected 
+                  label="View Device"
+                  className="p-button-sm"
+                /> : null}
+              </div>
+            ))}
+          </div>
+        
         )}
       </div>
 
-      {/* ----- LIVE CONSOLE ----- */}
-      <div className="console-panel">
-        <div className="console-header">
-          <h2>Live Console</h2>
-          <button className="clear-btn" onClick={() => setConsoleLines([])}>
-            Clear
-          </button>
-        </div>
-
-        <div className="console-output" ref={consoleRef}>
-          {consoleLines.map((stamped, i) => {
-            const original = stamped.replace(/^\[\d{2}:\d{2}:\d{2}\.\d{3}\]\s*/, "");
-            let className = "console-line";
-            if (original.includes("ON")) className += " on-line";
-            if (original.includes("OFF")) className += " off-line";
-            if (original.includes("cycles completed")) className += " done-line";
-            return (
-              <div key={i} className={className}>
-                {stamped}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ----- CHARTS (sample data) ----- */}
-      <div className="charts-section">
-        <h2>Data Overview</h2>
-        <div className="chart-grid">
-          <div className="chart-card">
-            <h3>Sensor Trends</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={sampleLine}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="time" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="chart-card">
-            <h3>Readings per Device</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={sampleBar}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="readings" fill="#10b981" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="chart-card">
-            <h3>Temperature Variation</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={sampleArea}>
-                <defs>
-                  <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="time" />
-                <YAxis />
-                <Tooltip />
-                <Area
-                  type="monotone"
-                  dataKey="temp"
-                  stroke="#6366f1"
-                  fillOpacity={1}
-                  fill="url(#colorTemp)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
+      
     </div>
   );
 }

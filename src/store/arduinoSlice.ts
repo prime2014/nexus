@@ -8,6 +8,7 @@ export interface ArduinoDevice {
   product?: string;
   serial_number?: string,
   custom_name?: string,
+  board_name?: string,
   status: 'connected' | 'disconnected';
 }
 
@@ -40,8 +41,15 @@ const arduinoSlice = createSlice({
         else state.devices.push(action.payload);
       }
     },
+    setDeviceCustomName: (state, action: PayloadAction<{ port: string; customName: string }>) => {
+        const { port, customName } = action.payload;
+        const device = state.devices.find(d => d.port === port);
+        if (device) {
+            device.custom_name = customName;
+        }
+    },
   },
 });
 
-export const { setScanning, setDevices, updateDevice } = arduinoSlice.actions;
+export const { setScanning, setDevices, updateDevice, setDeviceCustomName } = arduinoSlice.actions;
 export default arduinoSlice.reducer;

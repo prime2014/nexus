@@ -1,0 +1,118 @@
+/* General Layout & Styling */
+.detail-layout {
+    padding: 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Header Bar */
+.detail-header-bar {
+    padding-bottom: 20px;
+}
+
+.back-button {
+    /* PrimeReact p-button-text style is usually good, maybe darken it slightly */
+    font-weight: 600;
+}
+
+/* Card Styling (using PrimeReact's p-card structure) */
+.p-card {
+    margin-bottom: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Soft, subtle shadow */
+}
+
+/* --- Device Summary Card --- */
+.device-summary-card {
+    background-color: #f7f9fc; /* Light background for contrast */
+}
+
+.device-card-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.device-icon-group {
+    display: flex;
+    align-items: center;
+}
+
+.device-icon {
+    font-size: 32px;
+    color: #007bff; /* Primary brand color */
+    margin-right: 15px;
+}
+
+.device-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #333;
+    margin: 0;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.status-connected {
+    background-color: #d4edda;
+    color: #155724;
+}
+.status-disconnected {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Detail Grid */
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    padding-top: 15px;
+}
+
+.detail-item {
+    padding: 10px 0;
+}
+
+.detail-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+
+.detail-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+/* --- Customization Panel --- */
+.customization-card .p-card-title {
+    font-size: 20px;
+}
+
+.name-input-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* Adjust InputText style for better integration (if needed) */
+.name-input-group .p-inputtext-lg {
+    flex-grow: 1;
+    height: 45px; /* Taller input for modern look */
+}
+
+.save-custom-name {
+    margin-top: 0 !important;
+}

@@ -1,266 +1,198 @@
-// src/components/Settings.tsx
-import React, { useState } from "react";
-import { useSelector } from "react-redux";
+import React, { useState, useEffect } from "react";
+import { Card } from 'primereact/card';
+import { InputSwitch } from 'primereact/inputswitch';
+import { InputText } from 'primereact/inputtext';
+import { Dropdown } from 'primereact/dropdown';
+import { Button } from 'primereact/button';
 import { invoke } from "@tauri-apps/api/core";
-import type { RootState } from "../store";
-import "./Settings.css";
+import toast, { Toaster } from "react-hot-toast";
+// Assuming you have imported your required types from earlier code
 
-
-interface ArduinoDevice {
-  port: string;
-  vid: number;
-  pid: number;
-  serial_number?: string | null;
-  product?: string | null;
-  custom_name?: string | null;
-  status: "connected" | "disconnected";
+// --- Configuration Types ---
+interface AppSettings {
+    theme: string;
+    baudRateDefault: number;
+    autoConnectEnabled: boolean;
+    defaultDoctorName: string;
+    logLevel: string;
 }
 
-// export default function Settings() {
-//   const devices = useSelector((state: RootState) => state.arduino.devices);
-//   const [editingKey, setEditingKey] = useState<string | null>(null);
-//   const [tempName, setTempName] = useState("");
+// Dummy data for dropdowns
+const themeOptions = [
+    { label: 'System Default', value: 'system' },
+    { label: 'Light Mode', value: 'light' },
+    { label: 'Dark Mode', value: 'dark' }
+];
 
-//   const startEditing = (device: ArduinoDevice) => {
-//     const key = `${device.port}-${device.vid}-${device.pid}`;
-//     setEditingKey(key);
-//     setTempName(device.custom_name || "");
-//   };
+const logOptions = [
+    { label: 'Error (Minimal)', value: 'error' },
+    { label: 'Info (Standard)', value: 'info' },
+    { label: 'Debug (Verbose)', value: 'debug' }
+];
 
-//   const saveName = async (device: ArduinoDevice) => {
-//     const name = tempName.trim();
-//     if (!name) return;
+// --- Helper Component for Clean Item Layout (No changes needed) ---
+interface SettingItemProps {
+    label: string;
+    description: string;
+    children: React.ReactNode;
+}
 
-//     try {
-//       await invoke("register_arduino", {
-//         vid: device.vid,
-//         pid: device.pid,
-//         serial: device.serial_number ?? null,
-//         custom_name: name,
-//       });
-//       // Optional: trigger rescan to update UI
-//       await invoke("scan_and_match_arduinos");
-//     } catch (err) {
-//       console.error("Failed to save name:", err);
-//     } finally {
-//       setEditingKey(null);
-//       setTempName("");
-//     }
-//   };
-
-//   const cancelEditing = () => {
-//     setEditingKey(null);
-//     setTempName("");
-//   };
-
-//   return (
-//     <div className="p-6 max-w-3xl mx-auto">
-//       <h1 className="text-2xl font-bold mb-6 text-gray-800">Arduino Settings</h1>
-
-//       {devices.length === 0 ? (
-//         <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center text-gray-500">
-//           <p>No Arduino devices detected.</p>
-//           <p className="text-sm mt-2">Connect an Arduino and it will appear here.</p>
-//         </div>
-//       ) : (
-//         <div className="space-y-4">
-//           {devices.map((device) => {
-//             const editKey = `${device.port}-${device.vid}-${device.pid}`;
-//             const isEditing = editingKey === editKey;
-
-//             return (
-//               <div
-//                 key={editKey}
-//                 className={`border rounded-lg p-4 bg-white shadow-sm transition-all ${
-//                   device.status === "connected" ? "ring-2 ring-green-200" : "opacity-75"
-//                 }`}
-//               >
-//                 <div className="flex items-center justify-between">
-//                   {/* Left: Info */}
-//                   <div className="flex-1">
-//                     <div className="flex items-center gap-3">
-//                       <div className="font-semibold text-lg">
-//                         {device.custom_name ? (
-//                           <span className="text-green-700">{device.custom_name}</span>
-//                         ) : (
-//                           <span className="text-gray-400 italic">Unnamed Arduino</span>
-//                         )}
-//                       </div>
-//                       <span
-//                         className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-//                           device.status === "connected"
-//                             ? "bg-green-100 text-green-800"
-//                             : "bg-red-100 text-red-800"
-//                         }`}
-//                       >
-//                         {device.status}
-//                       </span>
-//                     </div>
-
-//                     <div className="text-sm text-gray-600 mt-1">
-//                       <span className="font-mono">{device.port}</span>
-//                       {" • "}
-//                       VID: <code>0x{device.vid.toString(16).padStart(4, "0")}</code>
-//                       {" • "}
-//                       PID: <code>0x{device.pid.toString(16).padStart(4, "0")}</code>
-//                       {device.product && ` • ${device.product}`}
-//                     </div>
-//                   </div>
-
-//                   {/* Right: Action */}
-//                   <div className="ml-4">
-//                     {isEditing ? (
-//                       <div className="flex items-center gap-2">
-//                         <input
-//                           type="text"
-//                           value={tempName}
-//                           onChange={(e) => setTempName(e.target.value)}
-//                           onKeyDown={(e) => e.key === "Enter" && saveName(device)}
-//                           placeholder="Custom name"
-//                           className="px-3 py-1.5 border border-gray-300 rounded-md text-sm w-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
-//                           autoFocus
-//                         />
-//                         <button
-//                           onClick={() => saveName(device)}
-//                           className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition"
-//                         >
-//                           Save
-//                         </button>
-//                         <button
-//                           onClick={cancelEditing}
-//                           className="px-3 py-1.5 bg-gray-300 text-gray-700 rounded-md text-sm hover:bg-gray-400 transition"
-//                         >
-//                           Cancel
-//                         </button>
-//                       </div>
-//                     ) : (
-//                       <button
-//                         onClick={() => startEditing(device)}
-//                         className="px-4 py-1.5 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 transition"
-//                       >
-//                         {device.custom_name ? "Rename" : "Name Device"}
-//                       </button>
-//                     )}
-//                   </div>
-//                 </div>
-//               </div>
-//             );
-//           })}
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
-
-export default function Settings() {
-  const devices = useSelector((state: RootState) => state.arduino.devices);
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [tempName, setTempName] = useState("");
-
-  const startEditing = (device: ArduinoDevice) => {
-    const key = `${device.port}-${device.vid}-${device.pid}`;
-    setEditingKey(key);
-    setTempName(device.custom_name || "");
-  };
-
-  const saveName = async (device: ArduinoDevice) => {
-    const name = tempName.trim();
-    if (!name) return;
-
-    try {
-      await invoke("register_arduino", {
-        vid: device.vid,
-        pid: device.pid,
-        serial: device.serial_number ?? null,
-        custom_name: name,
-      });
-      // Optional: trigger rescan to update UI
-      await invoke("scan_and_match_arduinos");
-    } catch (err) {
-      console.error("Failed to save name:", err);
-    } finally {
-      setEditingKey(null);
-      setTempName("");
-    }
-  };
-
-  const cancelEditing = () => {
-    setEditingKey(null);
-    setTempName("");
-  };
-
-  return (
-    <div className="settings-container">
-      <h1 className="settings-title">Arduino Settings</h1>
-
-      {devices.length === 0 ? (
-        <div className="device-empty">
-          <p>No Arduino devices detected.</p>
-          <p>Connect an Arduino and it will appear here.</p>
+const SettingItem: React.FC<SettingItemProps> = ({ label, description, children }) => (
+    <div className="setting-item">
+        <div className="setting-info">
+            <h4 className="setting-label">{label}</h4>
+            <p className="setting-description">{description}</p>
         </div>
-      ) : (
-        <div className="device-list">
-          {devices.map((device) => {
-            const editKey = `${device.port}-${device.vid}-${device.pid}`;
-            const isEditing = editingKey === editKey;
-
-            return (
-              <div
-                key={editKey}
-                className={`device-card ${device.status}`}
-              >
-                <div className="device-info">
-                  <div className="device-name">
-                    {device.custom_name ? (
-                      <span>{device.custom_name}</span>
-                    ) : (
-                      <span className="unnamed">Unnamed Arduino</span>
-                    )}
-                    <span
-                      className={`status-badge ${device.status}`}
-                    >
-                      {device.status}
-                    </span>
-                  </div>
-                  <div className="device-meta">
-                    {device.port} • VID: 0x{device.vid.toString(16)} • PID: 0x
-                    {device.pid.toString(16)}{" "}
-                    {device.product && `• ${device.product}`}
-                  </div>
-                </div>
-
-                <div className="device-actions">
-                  {isEditing ? (
-                    <>
-                      <input
-                        className="device-input"
-                        type="text"
-                        value={tempName}
-                        onChange={(e) => setTempName(e.target.value)}
-                        placeholder="Custom name"
-                      />
-                      <button className="save-btn" onClick={() => saveName(device)}>
-                        Save
-                      </button>
-                      <button className="cancel-btn" onClick={cancelEditing}>
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      className="edit-btn"
-                      onClick={() => startEditing(device)}
-                    >
-                      {device.custom_name ? "Rename" : "Name Device"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        <div className="setting-control">
+            {children}
         </div>
-      )}
     </div>
-  );
+);
+
+// --- Main Component ---
+export default function Settings() {
+    const [settings, setSettings] = useState<AppSettings>({
+        // Initial dummy/default settings
+        theme: 'system',
+        baudRateDefault: 9600,
+        autoConnectEnabled: true,
+        defaultDoctorName: 'Dr. Smith',
+        logLevel: 'info',
+    });
+    const [loading, setLoading] = useState(false);
+
+    // Placeholder function to simulate loading settings from Rust/persistence
+    useEffect(() => {
+        // invoke<AppSettings>("load_settings").then(data => setSettings(data));
+    }, []);
+
+    // Function to handle saving settings
+    const handleSave = async () => {
+        setLoading(true);
+        try {
+            await invoke("save_settings", { settings });
+            toast.success("Settings saved successfully!");
+        } catch (error) {
+            toast.error("Failed to save settings.");
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    // Function to handle setting changes
+    const handleChange = (key: keyof AppSettings, value: any) => {
+        setSettings(prev => ({ ...prev, [key]: value }));
+    };
+
+    return (
+        <div className="settings-container">
+            <Toaster position="top-right" />
+            
+            <h1 className="settings-title">⚙️ Application Settings</h1>
+            
+            {/* --- 1. General Settings Card --- */}
+            <Card title="General & Appearance" className="settings-card">
+                <SettingItem 
+                    label="Application Theme" 
+                    description="Switch between light, dark, or system default mode."
+                >
+                    <Dropdown 
+                        value={settings.theme} 
+                        options={themeOptions} 
+                        onChange={(e) => handleChange('theme', e.value)} 
+                        placeholder="Select a Theme" 
+                        style={{ width: '200px' }}
+                    />
+                </SettingItem>
+                <SettingItem 
+                    label="Default Doctor Name" 
+                    description="The default name pre-filled for new admission records."
+                >
+                    <InputText 
+                        value={settings.defaultDoctorName} 
+                        onChange={(e) => handleChange('defaultDoctorName', e.target.value)} 
+                        placeholder="Doctor Name" 
+                        style={{ width: '200px' }}
+                    />
+                </SettingItem>
+            </Card>
+
+            {/* --- 2. Hardware/Connection Settings Card --- */}
+            <Card title="Hardware Connections" className="settings-card">
+                <SettingItem 
+                    label="Auto-Connect on Startup" 
+                    description="Attempt to connect to known devices when the app launches."
+                >
+                    <InputSwitch 
+                        checked={settings.autoConnectEnabled} 
+                        onChange={(e) => handleChange('autoConnectEnabled', e.value)} 
+                    />
+                </SettingItem>
+                <SettingItem 
+                    label="Default Baud Rate" 
+                    description="The default serial speed (bits per second) for new connections."
+                >
+                    <InputText 
+                        type="number"
+                        value={settings.baudRateDefault.toString()} 
+                        onChange={(e) => handleChange('baudRateDefault', Number(e.target.value))} 
+                        style={{ width: '100px' }}
+                    />
+                </SettingItem>
+            </Card>
+
+            {/* --- 3. Advanced/Data Settings Card --- */}
+            <Card title="Advanced & Data Management" className="settings-card">
+                <SettingItem 
+                    label="Backend Logging Level" 
+                    description="Control the verbosity of the Rust console logs for diagnostics."
+                >
+                    <Dropdown 
+                        value={settings.logLevel} 
+                        options={logOptions} 
+                        onChange={(e) => handleChange('logLevel', e.value)} 
+                        placeholder="Select Level" 
+                        style={{ width: '150px' }}
+                    />
+                </SettingItem>
+                <SettingItem 
+                    label="Open Data Folder" 
+                    description="View the directory containing your application database and config files."
+                >
+                    <Button 
+                        label="Open Folder" 
+                        icon="pi pi-folder-open" 
+                        className="p-button-secondary p-button-sm"
+                        onClick={() => invoke("open_data_directory")}
+                    />
+                </SettingItem>
+                <SettingItem 
+                    label="Clear All Data" 
+                    description="**Warning:** Deletes all patient and admission records permanently. Use with extreme caution."
+                >
+                    <Button 
+                        label="Reset Database" 
+                        icon="pi pi-trash" 
+                        className="p-button-danger p-button-sm"
+                        onClick={() => { if(window.confirm('Are you absolutely sure you want to delete ALL application data? This cannot be undone.')) invoke("reset_database") }} 
+                    />
+                </SettingItem>
+            </Card>
+            
+            {/* --- Save Bar (Fixed at the bottom or floating) --- */}
+            <div className="save-bar">
+                <Button 
+                    label={loading ? "Saving..." : "Save Changes"} 
+                    icon="pi pi-check" 
+                    onClick={handleSave} 
+                    disabled={loading}
+                    className="p-button-success"
+                />
+            </div>
+        </div>
+    );
 }
+
+// Ensure the helper component is defined or imported in your file.
+// (It is included above for completeness)

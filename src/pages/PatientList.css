@@ -1,0 +1,43 @@
+/* Ensure the button is a perfect square and has no padding */
+.action-button-circle.p-button {
+    width: 2rem !important;
+    height: 2rem !important; 
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important; 
+    
+    margin-top: 0 !important;
+}
+
+/* Ensure the icon element inside the button doesn't have excess margin/padding */
+.action-button-circle.p-button .p-button-icon {
+    margin-top: 0 !important;
+    padding: 0 !important;
+}
+
+
+.patient-list-container .p-inputtext.p-inputtext-sm {
+    /* Reduce the vertical padding (top/bottom) slightly to fit tighter rows, 
+       but ensure there's enough room on the left for the icon. 
+       The left padding (0.5rem) is crucial for clearing the icon.
+       We are setting the left padding here to be 2.5rem to push the text far right of the icon. 
+    */
+    padding: 0.4rem 0.75rem 0.4rem 2.5rem !important;
+    height: 2rem !important; /* Keep a consistent, small height */
+}
+
+/* 2. Fix the Search Icon (pi-search) position */
+.patient-list-container .p-input-icon-left i.pi-search {
+    /* Position the icon absolutely */
+    position: absolute; 
+    
+    /* Center the icon vertically */
+    top: 50%;
+    transform: translateY(-10%); 
+    
+    /* Crucial: Give the icon breathing room on the left and set its size */
+    left: 0.75rem !important; /* Move the icon slightly away from the edge */
+    font-size: 1rem; /* Ensure the icon is a standard, readable size */
+}

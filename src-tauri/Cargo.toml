@@ -59,5 +59,7 @@ dirs-next = "2.0"
 serialport = "4.8.1"
 tauri-plugin-device = "1.0.0"
 fs = "0.0.5"
+printpdf = "0.8.2"
+dialog = "0.3.0"
 
 

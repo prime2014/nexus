@@ -35,7 +35,8 @@ h3 {
     margin-bottom: 3rem;
 }
 
-.stat-card {
+.ds-stat-card {
+    flex-direction: column;
     padding: 1.5rem;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Lighter shadow */
@@ -43,12 +44,12 @@ h3 {
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.stat-card:hover {
+.ds-stat-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
-.stat-card h2 {
+.ds-stat-card h2 {
     font-size: 1rem;
     font-weight: 500;
     margin-bottom: 0.5rem;
@@ -58,22 +59,22 @@ h3 {
     color: white; /* Ensure header remains white */
 }
 
-.stat-card p {
+.ds-stat-card p {
     font-size: 3rem;
     font-weight: 800;
     line-height: 1;
 }
 
 /* Stat Card Colors (Kept vibrant for accents) */
-.stat-card.blue {
+.ds-stat-card.blue {
     background: linear-gradient(135deg, #3b82f6, #1d4ed8);
 }
 
-.stat-card.green {
+.ds-stat-card.green {
     background: linear-gradient(135deg, #10b981, #059669);
 }
 
-.stat-card.purple {
+.ds-stat-card.purple {
     background: linear-gradient(135deg, #8b5cf6, #7c3aed);
 }
 
@@ -127,8 +128,19 @@ h3 {
     border-left-color: #10b981; /* Green */
 }
 
+.device-card.connected:hover {
+    cursor: pointer;
+}
+
 .device-card.disconnected {
-    border-left-color: #f87171; /* Red */
+    /* Dim the entire card */
+  opacity: 0.6;
+  /* Add a gray border for a neutral, inactive status indicator */
+  border-left: 5px solid var(--gray-500, #9ca3af); 
+  /* Reduce saturation for a duller appearance */
+  filter: grayscale(20%);
+  /* Ensure the cursor doesn't suggest a click since navigation is disabled */
+  cursor: default;
 }
 
 .device-card.reading {
@@ -279,7 +291,7 @@ h3 {
     .dashboard {
         padding: 1rem;
     }
-    .stat-card p {
+    .ds-stat-card p {
         font-size: 2.5rem;
     }
     .device-grid {
@@ -291,60 +303,113 @@ h3 {
     }
 }
 
-
 .console-panel {
-  margin-top: 2rem;
-  background: #1e1e1e;
-  color: #d4d4d4;
-  padding: 1rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.console-panel h2 {
-  color: #fff;
-  font-size: 1.2rem;
-  margin-bottom: 0.75rem;
-}
-
-.console-output {
-  background: #111;
-  padding: 1rem;
-  height: 250px;          /* scrollable height */
-  overflow-y: auto;
-  border-radius: 6px;
-  font-family: "Consolas", "Courier New", monospace;
-  font-size: 0.9rem;
-  line-height: 1.4rem;
-}
-
-.console-line {
-  margin-bottom: 4px;
-  white-space: pre-wrap;
+    background-color: #1f2937; /* Dark slate background */
+    border-radius: 12px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    padding: 20px;
 }
 
 .console-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #374151; /* Darker grey border */
+    padding-bottom: 8px;
+}
+
+.console-header h2 {
+    color: #e5e7eb; /* Light text for the header title */
+    border: none;
+    margin: 0;
+    padding: 0;
 }
 
 .clear-btn {
-  background: #ff5555;
-  color: white;
-  border: none;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: 0.2s;
+    background: none;
+    border: 1px solid #4b5563; /* Medium grey border */
+    color: #9ca3af; /* Light grey text */
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background-color 0.2s;
+}
+
+.modal-popup-btn {
+    background: #855ff6;
+    border: 1px solid #855ff6; /* Medium grey border */
+    color: #f1f2f4; /* Light grey text */
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    margin-left: 5px;
+    transition: background-color 0.2s;
+}
+
+
+.modal-popup-btn:hover {
+    background-color: #8364e2;
+    color: #f3f4f6;
 }
 
 .clear-btn:hover {
-  background: #ff2222;
+    background-color: #374151;
+    color: #f3f4f6;
 }
 
-.console-line { color: #d4d4d4; }
+.console-output {
+    height: 300px;
+    overflow-y: auto;
+    background-color: #111827; /* Very dark background for output area */
+    color: #d1d5db; /* Off-white text for readability */
+    padding: 10px;
+    border-radius: 8px;
+    font-family: monospace; /* Monospace font is crucial for logs */
+    font-size: 0.85rem;
+}
+
+.console-line {
+    padding: 2px 0;
+    border-bottom: 1px dotted #374151;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Specific styling for log types */
+.on-line {
+    color: #10b981; /* Green for "ON" status */
+    font-weight: 600;
+}
+
+.off-line {
+    color: #f59e0b; /* Amber/Orange for "OFF" status */
+    font-weight: 600;
+}
+
+.done-line {
+    color: #6366f1; /* Indigo/Purple for cycle completion */
+    font-weight: 700;
+}
+
+.ds-stat-card.clickable {
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.ds-stat-card.clickable:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.ds-stat-card.yellow {
+    /* Choose a color for the patient card */
+    background-color: #f59e0b; /* Amber 500 */
+    color: white;
+}
+
 
 .on-line { color: #7CFC00; }         /* bright green */
 .off-line { color: #f8d568; }        /* yellowish */

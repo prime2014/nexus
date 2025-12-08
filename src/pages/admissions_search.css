@@ -1,0 +1,162 @@
+/* ================================
+   LAYOUT
+================================= */
+.analytics-container {
+  padding: 32px;
+  height: 100%;
+  overflow-y: auto;
+  background: #f9fafb;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  font-family: "Inter", sans-serif;
+}
+
+/* ================================
+   SEARCH PANEL
+================================= */
+.search-panel {
+  background: #ffffff;
+  padding: 28px;
+  border-radius: 18px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.search-panel h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+  color: #1e293b;
+}
+
+.search-bar {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.search-bar input {
+  flex: 1;
+  padding: 12px 14px;
+  font-size: 1rem;
+  border: 1px solid #d0d7e2;
+  border-radius: 10px;
+  background: #f8fafc;
+  transition: border 0.2s ease;
+}
+
+.search-bar input:focus {
+  border-color: #4f46e5;
+  outline: none;
+}
+
+.search-btn {
+  padding: 12px 20px;
+  background: #4f46e5;
+  border-radius: 10px;
+  color: white;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.search-btn:hover {
+  background: #4338ca;
+}
+
+/* ================================
+   RESULTS PANEL
+================================= */
+.results-panel {
+  background: #ffffff;
+  padding: 28px;
+  border-radius: 18px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.results-panel h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.patient-details p {
+  margin: 4px 0;
+  color: #334155;
+  font-size: 1rem;
+}
+
+/* ================================
+   ADMISSION LIST DROPDOWN
+================================= */
+
+.admission-select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admission-select label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.admission-select select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  font-size: 1rem;
+  transition: border 0.2s ease;
+}
+
+.admission-select select:focus {
+  border-color: #4f46e5;
+}
+
+/* ================================
+   GRAPH CARD
+================================= */
+.graph-card {
+  background: #ffffff;
+  padding: 28px;
+  border-radius: 18px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+
+.graph-card h3 {
+  margin-bottom: 18px;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* ================================
+   SMOOTH SCROLLING
+================================= */
+.analytics-container {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.analytics-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.analytics-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.analytics-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+}

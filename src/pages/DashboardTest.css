@@ -1,0 +1,352 @@
+/* src/components/DashboardTest.css - LIGHT THEME */
+
+/* General Layout and Light Theme Base */
+.dashboard-container {
+    background-color: #f4f4f4; /* Light gray background */
+    color: #333333;
+    min-height: 100vh;
+    padding: 30px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+h1 {
+    font-size: 1.8rem;
+    color: #1f2937; /* Dark text */
+    font-weight: 600;
+}
+
+h2 {
+    font-size: 1.4rem;
+    color: #4b5563; /* Medium text */
+    margin-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Header Bar */
+.dashboard-header-bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+/* --- Stats Grid (The Four Cards) --- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: #ffffff; /* White card background */
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-left: 5px solid;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card .icon {
+    flex-shrink: 0;
+}
+
+.stat-card .label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6b7280;
+    margin-bottom: 5px;
+}
+
+.stat-card .value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.stat-card .sub-value {
+    font-size: 0.9rem;
+    color: #4b5563;
+    margin-top: 4px;
+}
+
+/* Color Coding for Stat Cards */
+.stat-blue { border-left-color: #3b82f6; } /* Patient Context */
+.stat-blue .icon { color: #3b82f6; }
+
+.stat-green { border-left-color: #10b981; } /* Normal Readings */
+.stat-green .icon { color: #10b981; }
+
+.stat-red { border-left-color: #ef4444; } /* Cancer Readings */
+.stat-red .icon { color: #ef4444; }
+
+.stat-purple { 
+    border-left-color: #8b5cf6; /* Save Data */
+    display: flex; 
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+.stat-purple .sub-value { margin-top: 10px; }
+
+/* --- Main Content Grid (Console & Chart) --- */
+.main-content-grid {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.panel {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.console-panel {
+    flex: 1; /* Takes 1 part of the flexible space */
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-panel {
+    flex: 2; /* Takes 2 parts of the flexible space (twice as wide) */
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #1f2937;
+    margin-bottom: 15px;
+}
+.panel-header h2 {
+    margin: 0;
+    border: none;
+    padding: 0;
+}
+
+/* Sample Type Selector (Radio Buttons) */
+.sample-type-selector {
+    display: flex;
+    gap: 10px;
+    background: #e5e7eb; /* Light gray background for selector */
+    padding: 8px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+}
+
+.sample-option {
+    flex-grow: 1;
+    text-align: center;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: transparent;
+    transition: background-color 0.2s, color 0.2s;
+    border: 1px solid transparent;
+    color: #333;
+}
+
+.sample-option input[type="radio"] {
+    display: none;
+}
+
+.sample-option:hover {
+    background-color: #d1d5db;
+}
+
+.sample-option.active-normal {
+    background-color: #10b981; /* Green */
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.sample-option.active-cancer {
+    background-color: #ef4444; /* Red */
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* Console Output Styling */
+.console-output {
+    flex-grow: 1;
+    background-color: #f9fafb; /* Off-white background for console */
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    height: 300px; 
+    overflow-y: auto;
+    padding: 10px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+/* Console Line Coloring */
+.console-line {
+    color: #4b5563; /* Default text color */
+}
+.console-line.on-line {
+    color: #f59e0b; /* Amber for ON (Charging/Polarizing) */
+}
+.console-line.off-line {
+    color: #2563eb; /* Blue for OFF (Reading) */
+    font-weight: bold;
+}
+.console-line.done-line {
+    color: #10b981; /* Green for cycle complete */
+    font-weight: bold;
+}
+.console-line.error-line {
+    color: #ef4444; /* Red for errors */
+    font-weight: bold;
+}
+
+.console-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 15px;
+}
+
+/* Chart Styling */
+.chart-wrapper {
+    background-color: #ffffff; /* White background for chart area */
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.chart-legend-note {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: #9ca3af;
+}
+
+/* --- Devices Section --- */
+.devices-section {
+    margin-top: 20px;
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.devices-header {
+    margin-bottom: 20px;
+}
+.device-instruction {
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+.device-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.device-card {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 15px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.device-card.connected {
+    border-color: #10b981;
+}
+
+.device-card.reading {
+    border-color: #3b82f6; 
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+    animation: pulse-border 1.5s infinite alternate;
+}
+
+@keyframes pulse-border {
+    from {
+        box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+    }
+    to {
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+    }
+}
+
+.device-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.device-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.device-info {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-bottom: 15px;
+}
+
+.status-badge {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.status-connected {
+    background-color: #10b981; /* Green */
+    color: #ffffff;
+}
+
+.status-disconnected {
+    background-color: #ef4444; /* Red */
+    color: #ffffff;
+}
+
+.no-devices-message {
+    text-align: center;
+    padding: 30px;
+    background-color: #e5e7eb;
+    border: 1px dashed #9ca3af;
+    border-radius: 8px;
+    color: #4b5563;
+}
+
+/* Tweaking Recharts colors for light theme visibility */
+.recharts-wrapper {
+    /* Ensures Recharts components use dark text if not explicitly styled */
+    color: #333; 
+}
+.recharts-cartesian-grid line {
+    stroke: #e0e0e0 !important;
+}
+.recharts-surface text {
+    fill: #4b5563 !important; /* Axis labels */
+}
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+    background-color: #ffffff !important;
+    border: 1px solid #ccc !important;
+    color: #333 !important;
+}

@@ -7,9 +7,11 @@ export default function SidebarMenu() {
   const location = useLocation();
 
   const menuItems = [
-    { label: "Dashboard", icon: "pi pi-chart-line", path: "/" },
-    { label: "Logs", icon: "pi pi-list", path: "/logs" },
+    { label: "Dashboard", icon: "pi pi-home", path: "/" },
+    { label: "Logs", icon: "pi pi-history", path: "/logs" },
     { label: "Settings", icon: "pi pi-cog", path: "/settings" },
+    
+
   ];
 
   return (
