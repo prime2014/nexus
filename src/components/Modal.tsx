@@ -78,7 +78,6 @@ export const SaveDataModal: React.FC<SaveDataModalProps> = ({
     formData,
     setFormData,
     isSaving,
-    doctor_in_charge
 }) => {
     const { doctorName, isLoading } = useDoctor();
     

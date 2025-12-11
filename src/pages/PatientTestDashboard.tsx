@@ -241,46 +241,11 @@ export default function PatientTestDashboard() {
         }
     }, [consoleLines]);
 
-    /* ------------------------------------------------------------------ */
-    /* SAVE HANDLER (Unchanged)                                           */
-    /* ------------------------------------------------------------------ */
-    
-    // const handleSave = async () => {
-    //     if (!patientData) return;
-        
-    //     if (normalCellReadings.length === 0 && cancerCellReadings.length === 0) {
-    //         toast.error("Acquire data for at least one sample type before saving.");
-    //         return;
-    //     }
-
-    //     setIsSaving(true);
-        
-    //     try {
-    //         const dataToSave = {
-    //             admission_no: patientData.admission_no,
-    //             normal_voltages: normalCellReadings,
-    //             cancer_voltages: cancerCellReadings,
-    //             test_date: new Date().toISOString().split('T')[0], 
-    //         };
-
-    //         await invoke("save_patient_cancer_test", { data: dataToSave });
-
-    //         toast.success(`Test data saved for patient ${patientData.admission_no}!`);
-            
-    //         // Cleanup states after successful save
-    //         setConsoleLines([]);
-    //         setNormalCellReadings([]);
-    //         setCancerCellReadings([]);
-    //         setChartData([]);
-
-    //         navigate(`/analytics/${patientData.admission_no}`);
-
-    //     } catch (err: any) {
-    //         toast.error(err.message || `Failed to save test data: ${err}`);
-    //     }
-
-    //     setIsSaving(false);
-    // };
+    const calculateAverage = (readings: number[]): number => {
+        if (readings.length === 0) return 0;
+        const sum = readings.reduce((acc, val) => acc + val, 0);
+        return sum / readings.length;
+    };
 
     const handleSave = async () => {
     if (!patientData) return;
@@ -363,6 +328,19 @@ export default function PatientTestDashboard() {
     const deviceReading: (d: ArduinoDevice) => boolean = (d) => d.status === 'connected' && readingPorts.has(d.port);
     const connectedDevices = devices.filter((d: ArduinoDevice) => d.status === 'connected');
 
+    const avgNormalVoltage = calculateAverage(normalCellReadings);
+    const avgCancerVoltage = calculateAverage(cancerCellReadings);
+
+    const handleClearReadings = (type: "normal" | "cancer") => {
+        if (type === "normal") {
+            setNormalCellReadings([]);
+            toast.success("Normal cell readings cleared.", { icon: '🗑️' });
+        } else if (type === "cancer") {
+            setCancerCellReadings([]);
+            toast.success("Cancer cell readings cleared.", { icon: '🗑️' });
+        }
+    };
+
     /* ------------------------------------------------------------------ */
     /* RENDER UI                                                          */
     /* ------------------------------------------------------------------ */
@@ -370,7 +348,9 @@ export default function PatientTestDashboard() {
         <div className="dashboard-container">
             <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
 
-            <div className="dashboard-header-bar">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }} className="dashboard-header-bar">
+                <h1>Test Dashboard: {patientName}</h1>
+
                 <Button 
                     icon={<FaArrowLeft />} 
                     label="Back to Patients" 
@@ -379,7 +359,6 @@ export default function PatientTestDashboard() {
                     text 
                     onClick={handleGoBack}
                 />
-                <h1>Test Dashboard: {patientName}</h1>
             </div>
             
             <div className="stats-grid mb-6">
@@ -400,8 +379,24 @@ export default function PatientTestDashboard() {
                     <div className="details">
                         <p className="label">Normal Cell Readings</p>
                         <h2 className="value">{normalCellReadings.length}</h2>
-                        <p className="sub-value">{normalCellReadings.length > 0 ? 'READY TO SAVE' : 'Pending Acquisition'}</p>
+                        <p className="sub-value">
+                            {normalCellReadings.length > 0 
+                                ? `Avg Voltage: ${avgNormalVoltage.toFixed(4)} V` 
+                                : 'Pending Acquisition'}
+                        </p>
                     </div>
+                    {normalCellReadings.length > 0 && (
+                        <Button
+                            icon="pi pi-times"
+                            severity="warning"
+                            text
+                            className="p-button-sm clear-button"
+                            tooltip="Clear Normal Readings"
+                            onClick={() => handleClearReadings("normal")}
+                            aria-label="Clear Normal Readings"
+                            style={{ position: 'absolute', top: '10px', right: '10px' }}
+                        />
+                    )}
                 </div>
 
                 {/* Cancer Readings Card */}
@@ -410,8 +405,24 @@ export default function PatientTestDashboard() {
                     <div className="details">
                         <p className="label">Cancer Cell Readings</p>
                         <h2 className="value">{cancerCellReadings.length}</h2>
-                        <p className="sub-value">{cancerCellReadings.length > 0 ? 'READY TO SAVE' : 'Pending Acquisition'}</p>
+                        <p className="sub-value">
+                            {cancerCellReadings.length > 0 
+                                ? `Avg Voltage: ${avgCancerVoltage.toFixed(4)} V` 
+                                : 'Pending Acquisition'}
+                        </p>
                     </div>
+                    {cancerCellReadings.length > 0 && (
+                        <Button
+                            icon="pi pi-times"
+                            severity="warning"
+                            text
+                            className="p-button-sm clear-button"
+                            tooltip="Clear Cancer Readings"
+                            onClick={() => handleClearReadings("cancer")}
+                            aria-label="Clear Cancer Readings"
+                            style={{ position: 'absolute', top: '10px', right: '10px' }}
+                        />
+                    )}
                 </div>
                 
                 {/* Save Button Card */}

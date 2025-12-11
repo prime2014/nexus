@@ -6,6 +6,7 @@ import { Dropdown } from 'primereact/dropdown';
 import { Button } from 'primereact/button';
 import { invoke } from "@tauri-apps/api/core";
 import toast, { Toaster } from "react-hot-toast";
+import { readDir, BaseDirectory } from '@tauri-apps/plugin-fs';
 // Assuming you have imported your required types from earlier code
 
 // --- Configuration Types ---
@@ -85,6 +86,10 @@ export default function Settings() {
         setSettings(prev => ({ ...prev, [key]: value }));
     };
 
+    const openFolder = async () => {
+        await readDir("logs", { baseDir: BaseDirectory.AppLocalData });
+    }
+
     return (
         <div className="settings-container">
             <Toaster position="top-right" />
@@ -162,9 +167,10 @@ export default function Settings() {
                 >
                     <Button 
                         label="Open Folder" 
+
                         icon="pi pi-folder-open" 
                         className="p-button-secondary p-button-sm"
-                        onClick={() => invoke("open_data_directory")}
+                        onClick={openFolder}
                     />
                 </SettingItem>
                 <SettingItem 

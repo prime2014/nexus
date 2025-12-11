@@ -42,17 +42,35 @@ h2 {
     margin-bottom: 30px;
 }
 
+
+
+/* --- DashboardTest.css --- */
+
 .stat-card {
-    background: #ffffff; /* White card background */
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    /* ... existing styles like display, flex-direction, background-color, etc. ... */
+    
+    /* ADD THIS LINE to allow the absolute positioning of the clear button */
+    position: relative; 
+    background-color: white;
+    /* Example of other properties you might have: */
     display: flex;
-    align-items: flex-start;
-    gap: 15px;
-    transition: transform 0.2s, box-shadow 0.2s;
-    border-left: 5px solid;
+    align-items: center;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    color: white; /* Assuming light text on dark cards */
+    overflow: hidden; /* To prevent absolute elements from leaking out, if needed */
 }
+
+/* Optional: Additional style for the clear button (which is rendered by the Button component) */
+.stat-card .clear-button {
+    /* Override PrimeReact default spacing for a compact corner button */
+    padding: 0.25rem; 
+    height: auto;
+    width: auto;
+}
+
+
 
 .stat-card:hover {
     transform: translateY(-2px);
@@ -61,6 +79,7 @@ h2 {
 
 .stat-card .icon {
     flex-shrink: 0;
+    margin-right: 5px;
 }
 
 .stat-card .label {
@@ -349,4 +368,16 @@ h2 {
     background-color: #ffffff !important;
     border: 1px solid #ccc !important;
     color: #333 !important;
+}
+
+/* --- DashboardTest.css --- */
+
+
+
+/* Optional: Additional style for the clear button (which is rendered by the Button component) */
+.stat-card .clear-button {
+    /* Override PrimeReact default spacing for a compact corner button */
+    padding: 0.25rem; 
+    height: auto;
+    width: auto;
 }

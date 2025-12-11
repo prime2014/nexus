@@ -21,15 +21,6 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2.0", features = [] }
 rusb = "0.9"
 thiserror = "1"
-windows = { version = "0.58", features = [
-    "Win32_Devices_DeviceAndDriverInstallation",
-    "Win32_Foundation",
-    "Win32_System_LibraryLoader",
-    "Win32_UI_WindowsAndMessaging",
-    "Win32_Devices_HumanInterfaceDevice",
-    "Win32_Devices_Usb",
-    "Win32_Devices_DeviceAndDriverInstallation",
-] }
 tokio = { version = "1.0", features = ["time", "rt"] }
 tokio-serial = "5.4"
 chrono = { version = "0.4", features = ["clock"] }

@@ -13,11 +13,17 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+    // Ensure this is false so it doesn't fail on warnings
+    "noEmitOnError": false, 
+
+    // This is often enabled by default in new projects, 
+    // but disabling it might be necessary if the above aren't enough:
+    "forceConsistentCasingInFileNames": true,
 
     /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],

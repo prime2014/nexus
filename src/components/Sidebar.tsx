@@ -1,5 +1,3 @@
-// src/components/SidebarMenu.tsx
-import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 export default function SidebarMenu() {
@@ -50,9 +48,6 @@ export default function SidebarMenu() {
           </li>
         ))}
       </ul>
-      <div style={{ marginTop: "auto", fontSize: "0.85rem", color: "#666" }}>
-        Current: <b>{location.pathname}</b>
-      </div>
     </div>
   );
 }

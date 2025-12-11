@@ -274,3 +274,37 @@
     box-shadow: var(--shadow-light);
     margin-top: 30px;
 }
+
+
+.chart-item {
+    padding: 10px;
+}
+
+.chart-container-lg {
+    height: 450px;
+    width: 100%;
+}
+
+.chart-container-sm {
+    height: 400px;
+    width: 100%;
+}
+
+
+.chart-grid {
+    display: grid;
+    /* Comparative chart takes 2/3, Overall takes 1/3 */
+    grid-template-columns: 2fr 1fr; 
+    gap: 30px; /* Increase gap slightly for the separation line */
+    margin-top: 20px;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* 2. Add a left border to the second chart item (the Overall chart) */
+.overall-chart {
+    padding: 10px 0 10px 30px; 
+    border-left: 1px solid #ccc; 
+}

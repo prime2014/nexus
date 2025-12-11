@@ -134,6 +134,19 @@ pub fn init_database(app: &AppHandle) -> Result<Connection, Box<dyn std::error::
             last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS settings (
+            id INTEGER PRIMARY KEY DEFAULT 1,
+            default_theme TEXT NOT NULL DEFAULT 'system',
+            default_baud_rate INTEGER NOT NULL DEFAULT 9600,
+            auto_connect_enabled BOOLEAN NOT NULL DEFAULT 1, -- 1 for true, 0 for false
+            default_doctor_name TEXT NULL,
+            default_log_level TEXT NULL DEFAULT 'info',
+            log_file_location TEXT NULL,
+            sqlite_file_path TEXT NULL,
+            -- Ensures there is only ever one row (ID 1)
+            CHECK(id = 1) 
+        );
+
         CREATE UNIQUE INDEX IF NOT EXISTS 
             idx_unique_device_hardware 
             ON devices (vid, pid, serial_number);
@@ -845,4 +858,59 @@ pub fn upsert_patient_metadata(
     // Admission creation logic is explicitly omitted here.
     
     Ok(())
+}
+
+
+#[tauri::command]
+pub fn create_patient(
+    db: State<'_, Database>,
+    data: PatientData,
+) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+
+    let result = conn.execute(
+        "
+        INSERT INTO patients (
+            admission_no,
+            national_id,
+            firstname,
+            lastname,
+            contact_person,
+            telephone_1,
+            telephone_2,
+            classification,
+            doctor
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+        ",
+        params![
+            data.admission_no,
+            data.national_id,
+            data.firstname,
+            data.lastname,
+            data.contact_person,
+            data.telephone_1,
+            data.telephone_2,
+            data.classification,
+            data.doctor_in_charge
+        ],
+    );
+
+    match result {
+        Ok(_) => {
+            log_event(&conn, &format!(
+                "Created new patient with admission_no '{}'",
+                data.admission_no
+            ))
+            .map_err(|e| e.to_string())?;
+            Ok(())
+        }
+        Err(e) => {
+            if e.to_string().contains("UNIQUE constraint failed: patients.admission_no") {
+                Err("Patient with this admission number already exists.".into())
+            } else {
+                Err(e.to_string())
+            }
+        }
+    }
 }

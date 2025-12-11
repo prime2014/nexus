@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./Analytics.css";
 import {
@@ -10,13 +10,14 @@ import {
     Tooltip,
     ResponsiveContainer,
     Legend
+    // ReferenceLine is no longer needed since we are using a separate chart
 } from "recharts";
-import { FaArrowLeft, FaSearch, FaTimes, FaUserMd, FaVial } from 'react-icons/fa';
+import { FaSearch, FaTimes, FaUserMd, FaVial } from 'react-icons/fa';
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "primereact/button";
 
 // Constant to limit the number of data points displayed in the chart
-const MAX_CHART_ENTRIES = 10; 
+const MAX_CHART_ENTRIES = 5; 
 
 // The AdmissionRecord interface from Rust is now reflected here
 interface AdmissionRecord {
@@ -70,7 +71,7 @@ function getAdmissionAverage(
 
     // Create a unique name with admission_id and full timestamp
     const date = new Date(admission.timestamp);
-    const uniqueName = `#${admission.admission_no} - ${date.toLocaleDateString()} ${date.toLocaleTimeString([], { 
+    const uniqueName = `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { 
         hour: '2-digit', 
         minute: '2-digit' 
     })}`;
@@ -142,13 +143,10 @@ export default function Analytics() {
     }, [admissions]);
 
     /**
-     * 🌟 NEW: This memoized variable slices the data to only show the MAX_CHART_ENTRIES.
-     * Since the admissions array is already ordered by timestamp DESC (latest first) 
-     * from the Rust backend, we take the first N entries.
+     * This memoized variable slices the data to only show the MAX_CHART_ENTRIES.
      */
     const latestChartData: AggregateChartData[] = useMemo(() => {
         // NOTE: The full admissions list is sorted DESC (latest first).
-        // The slicing happens *after* aggregation, to ensure only valid data points are counted.
         return allAggregatedChartData.slice(0, MAX_CHART_ENTRIES);
     }, [allAggregatedChartData]);
 
@@ -157,10 +155,9 @@ export default function Analytics() {
             ? `${admissions[0].firstname} ${admissions[0].lastname}`
             : "";
 
-    // MODIFIED: Calculate summary statistics for both reference and cancer tests
+    // Calculate summary statistics for both reference and cancer tests
     const stats = useMemo(() => {
         const totalAdmissions = admissions.length;
-        // Use the full count of valid test records for totalTests
         const totalTests = allAggregatedChartData.length; 
         
         const avgCancerVoltage = totalTests > 0 
@@ -182,64 +179,73 @@ export default function Analytics() {
         };
     }, [admissions, allAggregatedChartData]);
 
-    const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-        // DEBUG: Log what we're getting
-        console.log('Tooltip payload:', payload);
-        console.log('Label:', label);
-        
-        return (
-            <div style={{ fontSize: "14px" }} className="custom-tooltip">
-                <p className="label">Admission: {label}</p>
-                {/* Iterate through all payload items */}
-                {payload.map((entry: any, index: number) => (
-                    <p 
-                        key={index} 
-                        className="intro" 
-                        style={{ color: entry.color }}
-                    >
-                        {entry.name}: {typeof entry.value === 'number' ? entry.value.toFixed(4) : entry.value} V
-                    </p>
-                ))}
-                {/* Keep your existing styles */}
-                <style>{`
-                    .custom-tooltip {
-                        background-color: #333;
-                        border: none;
-                        color: #fff;
-                        padding: 10px;
-                        border-radius: 4px;
-                        max-width: 250px;
-                    }
-                    .custom-tooltip .label {
-                        margin-bottom: 8px;
-                        font-size: 0.9em;
-                        font-weight: 600;
-                        border-bottom: 1px solid #555;
-                        padding-bottom: 5px;
-                    }
-                    .custom-tooltip .intro {
-                        margin: 3px 0;
-                        font-size: 0.9em;
-                        display: flex;
-                        align-items: center;
-                    }
-                    .custom-tooltip .intro::before {
-                        content: '';
-                        display: inline-block;
-                        width: 10px;
-                        height: 10px;
-                        background-color: ${payload[0]?.color || '#fff'};
-                        margin-right: 5px;
-                        border-radius: 2px;
-                    }
-                `}</style>
-            </div>
-        );
-    }
+    // 🌟 NEW MEMO: Data for the Overall Averages Bar Chart
+    const overallChartData: AggregateChartData[] = useMemo(() => {
+        if (stats.totalTests === 0) return [];
 
-    return null;
-};
+        return [{
+            name: "Overall Averages",
+            avg_cancer_voltage: parseFloat(stats.avgCancerVoltage),
+            avg_reference_voltage: parseFloat(stats.avgReferenceVoltage),
+        }];
+    }, [stats]);
+
+
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            
+            return (
+                <div style={{ fontSize: "14px" }} className="custom-tooltip">
+                    <p className="label">{label.includes('Avg') ? label : `Admission: ${label}`}</p>
+                    {/* Iterate through all payload items */}
+                    {payload.map((entry: any, index: number) => (
+                        <p 
+                            key={index} 
+                            className="intro" 
+                            style={{ color: entry.color }}
+                        >
+                            {entry.name}: {typeof entry.value === 'number' ? entry.value.toFixed(4) : entry.value} V
+                        </p>
+                    ))}
+                    {/* Keep your existing styles */}
+                    <style>{`
+                        .custom-tooltip {
+                            background-color: #333;
+                            border: none;
+                            color: #fff;
+                            padding: 10px;
+                            border-radius: 4px;
+                            max-width: 250px;
+                        }
+                        .custom-tooltip .label {
+                            margin-bottom: 8px;
+                            font-size: 0.9em;
+                            font-weight: 600;
+                            border-bottom: 1px solid #555;
+                            padding-bottom: 5px;
+                        }
+                        .custom-tooltip .intro {
+                            margin: 3px 0;
+                            font-size: 0.9em;
+                            display: flex;
+                            align-items: center;
+                        }
+                        .custom-tooltip .intro::before {
+                            content: '';
+                            display: inline-block;
+                            width: 10px;
+                            height: 10px;
+                            background-color: ${payload[0]?.color || '#fff'};
+                            margin-right: 5px;
+                            border-radius: 2px;
+                        }
+                    `}</style>
+                </div>
+            );
+        }
+
+        return null;
+    };
 
     return (
         <div className="analytics-container">
@@ -297,7 +303,7 @@ export default function Analytics() {
                         Analytics for: <strong>{patientName}</strong>
                     </p>
 
-                    {/* MODIFIED: Stats Panel */}
+                    {/* Stats Panel (Unchanged) */}
                     <div className="stats-panel">
                         <div className="stat-card">
                             <span className="stat-icon"><FaTimes /></span>
@@ -338,52 +344,98 @@ export default function Analytics() {
                     {/* --- End Stats Panel --- */}
 
 
-                    {/* --- Aggregate Chart Display --- */}
-                    <div className="chart-section card">
-                        <h2>Comparative Average Voltage Readings (Latest {MAX_CHART_ENTRIES} Admissions)</h2>
-                        {admissions.length > MAX_CHART_ENTRIES && (
-                            <p className="chart-note">
-                                *Chart displays the **latest {MAX_CHART_ENTRIES} admissions** for better readability. All {admissions.length} admissions are included in the summary statistics and table below.
-                            </p>
-                        )}
-                        <div className="chart-container-lg">
-                            <ResponsiveContainer width="100%" height={450}>
-                                <BarChart
-                                    // 🌟 MODIFIED: Use the limited latestChartData
-                                    data={latestChartData}
-                                    margin={{ top: 40, right: 30, left: 20, bottom: 5 }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={130} interval={0} />
-                                    <YAxis label={{ value: 'Average Voltage (V)', angle: -90, position: 'insideLeft' }} />
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Legend 
-                                        verticalAlign="top"
-                                        align="right"
-                                        wrapperStyle={{ top: 0, right: 0, paddingBottom: '10px' }} 
-                                    />
-                                    <Bar 
-                                        barSize={30} 
-                                        dataKey="avg_reference_voltage" 
-                                        fill="#4bc0c0" 
-                                        name="Reference (Normal Cell) Avg V" 
-                                        radius={[4, 4, 0, 0]} 
-                                    />
-                                    <Bar 
-                                        barSize={30} 
-                                        dataKey="avg_cancer_voltage" 
-                                        fill="#007bff" 
-                                        name="Cancer Test Avg V" 
-                                        radius={[4, 4, 0, 0]} 
-                                    />
-                                </BarChart>
-                            </ResponsiveContainer>
+                    {/* 🌟 MODIFIED: Chart Grid Container */}
+                    <div className="chart-grid card"> 
+                        
+                        {/* --- 1. Comparative Admissions Chart (Large) --- */}
+                        <div className="chart-item comparative-chart">
+                            <h2>Latest {MAX_CHART_ENTRIES} Admission Voltages</h2>
+                            {admissions.length > MAX_CHART_ENTRIES && (
+                                <p className="chart-note">
+                                    *Chart displays the **latest {MAX_CHART_ENTRIES} admissions** for better readability.
+                                </p>
+                            )}
+                            <div className="chart-container-lg">
+                                <ResponsiveContainer width="100%" height={450}>
+                                    <BarChart
+                                        data={latestChartData}
+                                        margin={{ top: 40, right: 30, left: 20, bottom: 5 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={130} interval={0} />
+                                        <YAxis label={{ value: 'Average Voltage (V)', angle: -90, position: 'insideLeft' }} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Legend 
+                                            verticalAlign="top"
+                                            align="center"
+                                            wrapperStyle={{ top: 0, paddingBottom: '10px' }} 
+                                        />
+                                        <Bar 
+                                            barSize={20} 
+                                            dataKey="avg_reference_voltage" 
+                                            fill="#4bc0c0" 
+                                            name="Reference (Normal Cell) Avg V" 
+                                            radius={[4, 4, 0, 0]} 
+                                        />
+                                        <Bar 
+                                            barSize={20} 
+                                            dataKey="avg_cancer_voltage" 
+                                            fill="#007bff" 
+                                            name="Cancer Test Avg V" 
+                                            radius={[4, 4, 0, 0]} 
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
+                        {/* --- /Comparative Admissions Chart --- */}
+
+                        {/* --- 2. Overall Averages Chart (Small, Side-by-Side) --- */}
+                        <div className="chart-item overall-chart">
+                            <h2>Overall Patient Average</h2>
+                            <p className="chart-note">
+                                *Average based on all {stats.totalTests} valid tests recorded.
+                            </p>
+                            <div className="chart-container-sm">
+                                <ResponsiveContainer width="100%" height={400}>
+                                    <BarChart
+                                        data={overallChartData}
+                                        margin={{ top: 40, right: 10, left: 10, bottom: 5 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        {/* Use a simple XAxis label since there's only one bar group */}
+                                        <XAxis dataKey="name" textAnchor="middle" height={50} /> 
+                                        <YAxis label={{ value: 'Average Voltage (V)', angle: -90, position: 'insideLeft' }} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Legend 
+                                            verticalAlign="top"
+                                            align="center"
+                                            wrapperStyle={{ top: 0, paddingBottom: '10px' }} 
+                                        />
+                                        <Bar 
+                                            barSize={40} 
+                                            dataKey="avg_reference_voltage" 
+                                            fill="#4bc0c0" 
+                                            name="Reference (Overall Avg V)" 
+                                            radius={[4, 4, 0, 0]} 
+                                        />
+                                        <Bar 
+                                            barSize={40} 
+                                            dataKey="avg_cancer_voltage" 
+                                            fill="#007bff" 
+                                            name="Cancer (Overall Avg V)" 
+                                            radius={[4, 4, 0, 0]} 
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                        {/* --- /Overall Averages Chart --- */}
+
                     </div>
-                    {/* --- /Aggregate Chart Display --- */}
+                    {/* --- /Chart Grid Container --- */}
 
-
-                    {/* --- Individual Admission Details Table --- */}
+                    {/* --- Individual Admission Details Table (Unchanged) --- */}
                     <div className="admissions-table-section card">
                         <h3>Detailed Admission Records</h3>
                         <div className="table-wrapper">
@@ -435,14 +487,6 @@ export default function Analytics() {
                                  </tbody>
                              </table>
                         </div>
-                        
-                        <button
-                            className="generate-report-btn"
-                            onClick={() => invoke("generate_report", { admissions })}
-                            disabled={admissions.length === 0}
-                        >
-                            Generate PDF Report
-                        </button>
                     </div>
                     {/* --- /Individual Admission Details Table --- */}
                 </>
@@ -450,3 +494,6 @@ export default function Analytics() {
         </div>
     );
 }
+
+
+

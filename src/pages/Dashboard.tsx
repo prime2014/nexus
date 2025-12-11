@@ -1,53 +1,14 @@
 // src/components/Dashboard.tsx
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../store";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  BarChart,
-  Bar,
-  AreaChart,
-  Area,
-  ResponsiveContainer,
-} from "recharts";
 import { Button } from "primereact/button";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import "./Dashboard.css";
 import toast, { Toaster } from "react-hot-toast";
-import { SaveDataModal } from "../components/Modal";
-import { useDoctor } from "../context/DoctorContext";
 import { Link, useNavigate } from "react-router-dom";
 
-const sampleLine = [
-  { time: "T1", value: 12 },
-  { time: "T2", value: 19 },
-  { time: "T3", value: 8 },
-  { time: "T4", value: 15 },
-  { time: "T5", value: 10 },
-];
-
-const sampleBar = [
-  { label: "Sensor A", readings: 15 },
-  { label: "Sensor B", readings: 30 },
-  { label: "Sensor C", readings: 10 },
-  { label: "Sensor D", readings: 20 },
-];
-
-const sampleArea = [
-  { time: "1s", temp: 22 },
-  { time: "2s", temp: 23 },
-  { time: "3s", temp: 24 },
-  { time: "4s", temp: 25 },
-  { time: "5s", temp: 24 },
-  { time: "6s", temp: 26 },
-];
 
 interface PatientForm {
     admission_no: string;
@@ -318,11 +279,6 @@ export default function Dashboard() {
           </Link>
         </div>
 
-
-        <div className="ds-stat-card blue">
-          <h2>Total Readings</h2>
-          <p>245</p>
-        </div>
         <div className="ds-stat-card green">
           <h2>Connected Devices</h2>
           <p>{devices.filter((d) => d.status === "connected").length}</p>

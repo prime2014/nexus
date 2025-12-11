@@ -128,7 +128,7 @@ export default function PatientList() {
         try {
             if (isNewPatient) {
                 // Creation: Uses the command that handles the full patient creation
-                await invoke("upsert_patient_metadata", { data: currentPatient }); 
+                await invoke("create_patient", { data: currentPatient }); 
                 toast.success("New Patient created successfully!");
             } else {
                 // Update: Uses the command specific for updating existing patient data
