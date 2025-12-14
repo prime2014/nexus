@@ -29,7 +29,6 @@ export const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           .join(" ");
 
         setDoctorName(prettyName || username);
-        toast.success(`Welcome, Dr. ${prettyName}`, { icon: "Doctor", duration: 4000 });
       } catch (err) {
         console.warn("Failed to get doctor name:", err);
         setDoctorName("Unknown Doctor");

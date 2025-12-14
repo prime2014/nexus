@@ -7,7 +7,7 @@ export default function SidebarMenu() {
   const menuItems = [
     { label: "Dashboard", icon: "pi pi-home", path: "/" },
     { label: "Logs", icon: "pi pi-history", path: "/logs" },
-    { label: "Settings", icon: "pi pi-cog", path: "/settings" },
+    // { label: "Settings", icon: "pi pi-cog", path: "/settings" },
     
 
   ];

@@ -4,13 +4,13 @@ use std::{
 };
 
 use serde_json::Number;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager, State, Runtime};
 use tauri::path::BaseDirectory;
 use crate::types::UsbDevice;
 
 use rusqlite::{Connection, params};
 use serde::Deserialize;
-
+use log::{info, warn, error};
 #[derive(Clone)]
 pub struct Database(pub Arc<Mutex<Connection>>);
 
@@ -641,9 +641,68 @@ pub fn update_device_alias(
 
 // src/database.rs (or where your DB commands live)
 
+// #[tauri::command]
+// pub fn fetch_all_known_devices(db: State<Database>) -> Result<Vec<UsbDevice>, String> {
+//     let conn = db.0.lock().map_err(|e| e.to_string())?;
+
+//     let mut stmt = conn.prepare(
+//         "
+//         SELECT vid, pid, serial_number, product, custom_name
+//         FROM devices
+//         ORDER BY last_seen DESC;
+//         "
+//     ).map_err(|e| e.to_string())?;
+
+//     let device_iter = stmt.query_map(params![], |row| {
+//         Ok(UsbDevice {
+//             // Default volatile fields
+//             port: "N/A".to_string(), 
+//             // All devices from DB start as disconnected, status will be updated by scanner
+//             status: "disconnected".to_string(), 
+            
+//             // Persistent fields from DB
+//             vid: row.get(0)?,
+//             pid: row.get(1)?,
+//             serial_number: row.get(2)?,
+//             product: row.get(3)?,
+//             custom_name: row.get(4)?,
+//             // Add board_name for completeness, if your UsbDevice struct requires it
+//             board_name: row.get(3).unwrap_or("N/A".to_string()), 
+//         })
+//     }).map_err(|e| e.to_string())?;
+
+//     let devices: Result<Vec<UsbDevice>, rusqlite::Error> = device_iter.collect();
+//     devices.map_err(|e| e.to_string())
+// }
+
+
+
+// src-tauri/src/database.rs (Updated command signature)
+
+ // Assuming your logging setup is working
+
 #[tauri::command]
-pub fn fetch_all_known_devices(db: State<'_, Database>) -> Result<Vec<UsbDevice>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
+// 🛑 CRITICAL FIX: Use the 'static lifetime to ensure type consistency across the production build.
+pub fn fetch_all_known_devices<R: Runtime>(
+    db: State<Database>,
+    _app: AppHandle<R>
+) -> Result<Vec<UsbDevice>, String> { 
+    // New log added to confirm if the function is even entered
+    info!("COMMAND INVOKED: fetch_all_known_devices. Attempting to acquire DB lock.");
+
+    let conn = match db.0.lock() {
+        Ok(guard) => {
+            info!("DB Lock acquired successfully.");
+            guard
+        },
+        Err(e) => {
+            error!("Failed to acquire DB lock: {}", e);
+            // This return should only happen if the lock fails, NOT if the state isn't managed.
+            return Err(format!("Database Lock Error: {}", e.to_string()));
+        }
+    };
+    
+    info!("Preparing SQL statement to fetch devices.");
 
     let mut stmt = conn.prepare(
         "
@@ -651,30 +710,45 @@ pub fn fetch_all_known_devices(db: State<'_, Database>) -> Result<Vec<UsbDevice>
         FROM devices
         ORDER BY last_seen DESC;
         "
-    ).map_err(|e| e.to_string())?;
+    ).map_err(|e| {
+        error!("Failed to prepare SQL statement: {}", e);
+        e.to_string()
+    })?;
+
+    info!("Executing query to map device results.");
 
     let device_iter = stmt.query_map(params![], |row| {
         Ok(UsbDevice {
-            // Default volatile fields
+            // ... (device field mapping remains the same)
             port: "N/A".to_string(), 
-            // All devices from DB start as disconnected, status will be updated by scanner
             status: "disconnected".to_string(), 
-            
-            // Persistent fields from DB
             vid: row.get(0)?,
             pid: row.get(1)?,
             serial_number: row.get(2)?,
             product: row.get(3)?,
             custom_name: row.get(4)?,
-            // Add board_name for completeness, if your UsbDevice struct requires it
             board_name: row.get(3).unwrap_or("N/A".to_string()), 
         })
-    }).map_err(|e| e.to_string())?;
+    }).map_err(|e| {
+        error!("Failed during query mapping: {}", e);
+        e.to_string()
+    })?;
+
+    info!("Collecting device results into Vec<UsbDevice>.");
 
     let devices: Result<Vec<UsbDevice>, rusqlite::Error> = device_iter.collect();
-    devices.map_err(|e| e.to_string())
+    
+    match devices {
+        Ok(d) => {
+            info!("Successfully fetched {} known devices.", d.len());
+            Ok(d)
+        },
+        Err(e) => {
+            error!("Failed to collect final device list: {}", e);
+            Err(e.to_string())
+        }
+    }
 }
-
 
 #[tauri::command]
 pub fn get_patient_count(db: State<'_, Database>) -> Result<i32, String> {

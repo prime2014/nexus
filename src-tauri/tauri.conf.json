@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-      "title": "Serial Monitor",
+      "title": "Nexus",
       "label": "main",
       "width": 1400,
       "height": 900,
@@ -26,11 +26,13 @@
       "width": 600,
       "height": 600,
       "label": "splashscreen",
-      "url": "/src/splashscreen.html", 
+      "url": "splashscreen.html", 
       "decorations": false,
       "center": true,
       "resizable": false,
-      "alwaysOnTop": true
+      "alwaysOnTop": true,
+      "visible": true
+      
     },
     {
         "label": "setupwizard",
@@ -44,12 +46,15 @@
     }
     ],
     "security": {
-      "csp": "default-src 'self'"
+      "csp": "default-src 'self' tauri: data: blob: filesystem:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' tauri: ws: wss: http://ipc.localhost; img-src 'self' asset: data: blob:; font-src 'self' data:;",
+      "dangerousDisableAssetCspModification": true
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
+    "licenseFile": "license.txt",
+
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -57,6 +62,14 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "installer.nsh",
+        "template": "template.nsi",
+        "languages": ["English"],
+        "compression": "lzma"
+      }
+    },
     "publisher": "Prime Ltd", 
     "copyright": "Copyright (c) 2025, Prime Ltd"
   }

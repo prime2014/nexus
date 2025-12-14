@@ -1,0 +1,24 @@
+1. Title and Agreement Preamble
+NEXUS MEDICAL SOFTWARE END USER LICENSE AGREEMENT (EULA)
+
+This License Agreement is a legal agreement between the Licensee (the individual or entity using the software) and PRIME LTD for the Nexus Medical Software. By installing, copying, or otherwise using the Software, Licensee agrees to be bound by the terms of this EULA.
+
+2. Grant of License and Use Restrictions
+2.1 License Grant: Licensor grants Licensee a non-exclusive, non-transferable, limited license to install and use the Software solely for managing clinical and administrative operations at the medical practice(s) specified during registration.
+
+2.2 Prohibited Use: The Licensee shall not reverse engineer, decompile, disassemble, modify, create derivative works from, or transfer the Software. The Software is licensed, not sold.
+
+2.3 Restriction on Patient Treatment: THIS SOFTWARE IS A DATA MANAGEMENT AND PRESENTATION TOOL ONLY. It is NOT a medical device, and its outputs, reports, or data visualizations are NOT intended to substitute for the independent professional medical judgment of a licensed practitioner. LICENSEE IS SOLELY RESPONSIBLE FOR ALL CLINICAL DECISIONS AND PATIENT CARE.
+
+3. Data Protection and Compliance (Critical for Medical Software)
+3.1 Regulatory Compliance: Licensee acknowledges and agrees that it is solely responsible for ensuring its use of the Software complies with all applicable national and international laws and regulations regarding patient health information, including, but not limited to, HIPAA (in the U.S.), GDPR (in the EU/EEA), and any similar local data privacy acts.
+
+3.2 Security and Access: Licensee is responsible for implementing and maintaining all technical and administrative safeguards necessary to protect patient data (Protected Health Information or PHI) stored or processed using the Software, including regular backups, strong passwords, and restricted access.
+
+4. Warranty Disclaimer and Limitation of Liability
+4.1 Disclaimer: The Software is provided "AS IS," and the Licensor specifically disclaims all warranties, express or implied, including, but not limited to, the implied warranties of merchantability, fitness for a particular purpose, and non-infringement.
+
+4.2 Limitation of Liability: To the maximum extent permitted by law, in no event shall the Licensor be liable for any special, incidental, punitive, or consequential damages whatsoever (including, without limitation, damages for loss of business profits, business interruption, loss of data, or damages for personal injury) arising out of the use of or inability to use the Software, even if the Licensor has been advised of the possibility of such damages. Licensor's total liability shall not exceed the amount paid by Licensee for the Software.
+
+5. Termination
+5.1 Termination: Without prejudice to any other rights, the Licensor may terminate this EULA if the Licensee fails to comply with the terms and conditions of this EULA. In such event, the Licensee must immediately cease use of the Software and destroy all copies of the Software and all of its component parts.

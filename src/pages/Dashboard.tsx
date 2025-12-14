@@ -8,6 +8,9 @@ import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import "./Dashboard.css";
 import toast, { Toaster } from "react-hot-toast";
 import { Link, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { setDevices } from "../store/arduinoSlice";
+import { ArduinoDevice } from "../store/arduinoSlice";
 
 
 interface PatientForm {
@@ -23,6 +26,27 @@ interface PatientForm {
     doctor_in_charge: string;
     sample_type: "normal" | "cancer" | "";
 }
+
+const getNormalizedString = (s?: string | null): string => {
+    if (!s) return '';
+    return String(s).trim().replace(/\s+/g, ' ');
+};
+
+const getNormalizedValue = (s?: string | null): string | undefined => {
+    const normalized = getNormalizedString(s);
+    return normalized === '' ? undefined : normalized;
+}
+
+const cleanDeviceForRedux = (d: any): ArduinoDevice => ({
+    port: getNormalizedValue(d.port) || 'N/A', 
+    vid: d.vid,
+    pid: d.pid,
+    product: getNormalizedValue(d.product),
+    serial_number: getNormalizedValue(d.serial_number),
+    custom_name: getNormalizedValue(d.custom_name),
+    board_name: getNormalizedValue(d.board_name),
+    status: getNormalizedValue(d.status) === 'connected' ? 'connected' : 'disconnected', 
+});
 
 export default function Dashboard() {
   const { devices } = useSelector((state: RootState) => state.arduino);
@@ -51,6 +75,7 @@ export default function Dashboard() {
     sample_type: "normal"
   });
   const [isSaving, setIsSaving] = useState(false);
+  const dispatch = useDispatch();
 
   /* ------------------------------------------------------------------ */
   /* 1. AUTO-SCROLL CONSOLE                                            */
@@ -77,8 +102,81 @@ export default function Dashboard() {
       }
     };
 
-    fetchPatientCount();
-  }, []);
+    fetchPatientCount()
+  },[])
+
+
+  // useEffect(() => {
+  //   const fetchPatientCount = async () => {
+  //     try {
+  //       // Invoke the new Rust command
+  //       const count = await invoke<number>("get_patient_count");
+  //       setPatientCount(count);
+  //     } catch (err) {
+  //       console.error("Failed to fetch patient count:", err);
+  //       // Optionally show a toast error
+  //     }
+  //   };
+
+  //   const fetchInitialDevices = async () => {
+  //       if (devices && devices.length > 0) {
+  //               console.log("Optimization: Devices already in Redux. Skipping DB fetch.");
+  //               return; // Exit early if data is already present
+  //       }
+  //       try {
+  //           // This call succeeded when run from Dashboard's mount cycle
+  //           const rawDbDevices: any[] = await invoke('fetch_all_known_devices');
+  //           console.log("RAW DB DEVICE: ")
+  //           console.log(rawDbDevices)
+  //           const dbDevices: ArduinoDevice[] = rawDbDevices.map(d => cleanDeviceForRedux(d));
+  //           dispatch(setDevices(dbDevices)); // Update Redux state
+  //           console.log("SUCCESS: Initial known devices loaded from Dashboard.");
+  //       } catch (err) {
+  //           // If it fails here, the error is critical, but it SHOULD NOT
+  //           console.error("CRITICAL FAILURE: Initial DB device load failed in Dashboard:", err);
+  //       }
+  //   };
+  //   fetchInitialDevices()
+  //   fetchPatientCount();
+  // }, [dispatch, devices]);
+
+//   useEffect(() => {
+//     const fetchPatientCount = async () => {
+//       try {
+//         // Invoke the new Rust command
+//         const count = await invoke<number>("get_patient_count");
+//         setPatientCount(count);
+//       } catch (err) {
+//         console.error("Failed to fetch patient count:", err);
+//         // Optionally show a toast error
+//       }
+//     };
+
+//     const fetchInitialDevicesAndScan = async () => {
+//         let dbDevices: ArduinoDevice[] = [];
+        
+//         // 1. Fetch from DB (CRITICAL STEP for custom_name)
+//         try {
+//             const rawDbDevices: any[] = await invoke('fetch_all_known_devices');
+//             dbDevices = rawDbDevices.map(d => cleanDeviceForRedux(d));
+//             dispatch(setDevices(dbDevices)); // Load DB devices (with custom names) into Redux
+//             console.log("STEP 1 SUCCESS: Initial known devices loaded from DB (with custom names).");
+//         } catch (err) {
+//             console.error("CRITICAL FAILURE: Initial DB device load failed in Dashboard:", err);
+//             // We proceed to scan even if DB failed, but the custom names will be missing.
+//         }
+        
+//         try {
+//             await invoke('scan_arduino_now'); 
+//             console.log("STEP 2 SUCCESS: Initial live scan triggered.");
+//         } catch (error) {
+//             console.error('Failed to trigger initial device scan:', error);
+//         }
+//     };
+
+//     fetchPatientCount();
+//     fetchInitialDevicesAndScan(); // Renamed function to reflect its new job
+// }, [dispatch]);
 
 
   const handleViewPatients = () => {
