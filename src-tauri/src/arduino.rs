@@ -60,6 +60,7 @@ fn get_current_devices_blocking() -> Result<Vec<UsbDevice>, AppError> {
                 product: info.product.clone(),
                 status: "connected".to_string(),
                 board_name: "".to_string(),
+                device_unit: None,
                 custom_name: None
             };
 

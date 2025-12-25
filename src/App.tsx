@@ -12,19 +12,24 @@ import DeviceDetail from "./pages/DeviceDetail";
 import PatientList from "./pages/PatientList";
 import PatientTestDashboard from "./pages/PatientTestDashboard";
 import { ArduinoDevice } from "./store/arduinoSlice";
-
-
-// src/App.tsx (MODIFIED)
-
-// ... (other imports) ...
-// ... (Redux and Context imports) ...
-import { useState, useEffect, useCallback } from "react"; // <-- Import required hooks
-import { invoke } from "@tauri-apps/api/core";
+import { useState, useEffect } from "react";
+import { invoke,  } from "@tauri-apps/api/core";
 import { useDispatch } from "react-redux";
 import { setDevices } from "./store/arduinoSlice";
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
-// NOTE: You must ensure cleanDeviceForRedux is available/imported here or within the functions below.
-// Assuming ArduinoDevice type is available globally or imported.
+import SetupWizard from "./pages/Setup";
+import { setSettings } from "./store/settingsSlice";
+
+
+interface MyAppSettings {
+    theme: string;
+    baud_rate_default: number;
+    auto_connect_enabled: boolean;
+    default_doctor_name: string;
+    log_level: string;
+    log_file_location: string;
+    sqlite_file_path: string;
+}
 
 const getNormalizedString = (s?: string | null): string => {
     if (!s) return '';
@@ -147,7 +152,35 @@ function AppInitializer({ children }) {
 
 // 🚨 ORIGINAL AppContent Component (REMOVED Watcher Hook Call)
 function AppContent() {
-   
+   const dispatch = useDispatch();
+
+    useEffect(() => {
+        const unlisten = listen<{ settings: MyAppSettings }>('setup-finished', (event) => {
+            console.log("Applying new settings to Main Window store...");
+            console.log(event.payload.settings)
+            
+            // Update Redux with the data passed in the event payload
+            dispatch(setSettings(event.payload.settings));
+        });
+
+        const loadFromDb = async () => {
+            try {
+                const loaded: MyAppSettings = await invoke("get_app_settings");
+                console.log("Normal launch — loaded settings from DB:", loaded);
+                dispatch(setSettings(loaded));
+            } catch (err) {
+                console.error("Failed to load settings on startup:", err);
+                // Optional: dispatch defaults
+            }
+        };
+
+        loadFromDb();
+
+        // Cleanup the listener when the component unmounts
+        return () => {
+            unlisten.then(f => f());
+        };
+    }, [dispatch]);
     
     return (
         <Router>
@@ -162,6 +195,8 @@ function AppContent() {
                         <Route path="/device/:portName" element={<DeviceDetail />} />
                         <Route path="/test/:admissionNo" element={<PatientTestDashboard />} />
                         <Route path="/patients" element={<PatientList />} />
+                        <Route path="/setup" element={<SetupWizard />} />
+                        <Route path="/settings" element={<Settings/>} />
                     </Routes>
                 </div>
             </div>

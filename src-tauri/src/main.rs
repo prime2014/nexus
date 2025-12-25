@@ -8,21 +8,22 @@ mod logging;
 mod setup;
 mod errordefs;
 mod user;
-// mod reports;
-use tauri::{Manager, AppHandle, Wry, State};
+
+use tauri::{AppHandle, Manager, State, Wry};
 use std::sync::atomic::{AtomicBool, Ordering};
-use once_cell::sync::Lazy; // Import Lazy for the global state
-use errordefs::AppError;
-use std::error::Error as StdError;
+use once_cell::sync::Lazy;
+use tauri_plugin_dialog::init;
+
+use tauri::Listener;
 
 use database::{
-    Database, 
-    init_database, 
-    get_logs, 
-    log_event_command, 
+    Database,
+    init_database,
+    get_logs,
+    log_event_command,
     create_patient,
-    save_admission, 
-    save_patient, 
+    save_admission,
+    save_patient,
     save_patient_with_admission,
     search_patients,
     get_all_patients,
@@ -33,7 +34,8 @@ use database::{
     get_patient_by_admission_no,
     delete_patient_by_admission_no,
     update_patient_data,
-    upsert_patient_metadata
+    upsert_patient_metadata,
+    get_app_settings
 };
 use arduino::{
     start_arduino_watcher,
@@ -42,20 +44,15 @@ use arduino::{
     start_reading_from_port,
     stop_reading_from_port,
 };
-
-use user::{
-    get_current_user
-};
+use setup::{get_default_paths, save_setup_settings, set_setup_complete};
+use user::get_current_user;
 use logging::init_logger;
-use setup::{save_log_directory, set_setup_complete};
 
-// GLOBAL GUARD: Prevents the CloseRequested handler from running repeatedly
 static SHUTDOWN_IN_PROGRESS: Lazy<AtomicBool> = Lazy::new(|| AtomicBool::new(false));
-
 
 fn main() {
     log::info!("=== TAURI SETUP RUNNING ===");
-    // Safe duplicate prevention - only in dev, and only if watcher PID exists
+
     #[cfg(debug_assertions)]
     {
         if std::env::var("TAURI_DEV_WATCHER_PID").is_ok() {
@@ -64,7 +61,7 @@ fn main() {
         }
     }
 
-    let _single_instance = tauri_plugin_single_instance::init(|app: &AppHandle<Wry>, argv, cwd| {
+    let _single_instance = tauri_plugin_single_instance::init(|app: &AppHandle<Wry>, _argv, _cwd| {
         log::warn!("Another instance is already running. Bringing it to front.");
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.show();
@@ -73,6 +70,8 @@ fn main() {
     });
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             // 1. Initialize logger
             if let Err(e) = init_logger(&app.handle()) {
@@ -84,82 +83,84 @@ fn main() {
             let db = Database(std::sync::Arc::new(std::sync::Mutex::new(conn)));
             app.manage(db);
 
+            // Pre-flight check
             {
                 let managed_state = app.state::<Database>();
-                
-                let lock_result = managed_state.0.lock();
-
-                match lock_result {
-                    Ok(_guard) => {
-                        log::info!("Database pre-flight check passed: state managed and connection accessible.");
-                    }
-                    Err(e) => {
-                        let app_error: AppError = e.into();
-                        log::error!("Database pre-flight check FAILED: mutex poisoned - {}", app_error);
-                        
-                        let error_message = format!("Setup critical failure: Database mutex poisoned. {}", app_error);
-
-                        // We use the simpler Box<dyn StdError> return type.
-                        // return Err(Box::<dyn std::error::Error + Send + Sync>::from(error_message));
-                        return Err(Box::new(app_error));
-                    }
+                if managed_state.0.lock().is_err() {
+                    log::error!("Database mutex poisoned during setup");
+                    return Err("Critical setup failure: Database mutex poisoned.".into());
                 }
+                log::info!("Database pre-flight check passed.");
             }
 
             // 3. Get window references
-            let splashscreen = app.get_webview_window("splashscreen")
-                .expect("Splashscreen window not found");
-            let main_window = app.get_webview_window("main")
-                .expect("Main window not found");
+            let splashscreen = app.get_webview_window("splashscreen").expect("Splashscreen not found");
+            let main_window = app.get_webview_window("main").expect("Main window not found");
+            let setup_window = app.get_webview_window("setupwizard").expect("Setup wizard not found");
 
-            // 4. Graceful shutdown on close request
+            // 4. Graceful shutdown
             let shutdown_handle = app.handle().clone();
             main_window.on_window_event(move |event| {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                    if SHUTDOWN_IN_PROGRESS.compare_exchange(
-                        false,
-                        true,
-                        Ordering::SeqCst,
-                        Ordering::Relaxed,
-                    ).is_ok() {
+                    if SHUTDOWN_IN_PROGRESS
+                        .compare_exchange(false, true, Ordering::SeqCst, Ordering::Relaxed)
+                        .is_ok()
+                    {
                         api.prevent_close();
-
-                        // Stop Arduino watcher gracefully
-                        if let Err(e) = stop_arduino_watcher() {
-                            log::debug!("Arduino watcher already stopped or error: {}", e);
-                        }
-
-                        // Exit the application
+                        let _ = stop_arduino_watcher();
                         shutdown_handle.exit(0);
                     }
                 }
             });
 
-            // 5. Async initialization task
+            // 5. Async initialization
             let init_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                // Start Arduino device watcher (This starts the continuous background scan)
-                if let Err(e) = start_arduino_watcher(init_handle).await {
-                    log::error!("Failed to start Arduino watcher: {}", e);
-                }
-
-                // Optional: Ensure splashscreen is visible long enough for good UX
-                // This delay should be just long enough for the watcher to start.
                 tokio::time::sleep(tokio::time::Duration::from_millis(1200)).await;
 
-                let _ = splashscreen.close();
-                let _ = main_window.show();
-                let _ = main_window.set_focus();
+                let db: State<'_, Database> = init_handle.state();
 
-                // ❌ REMOVED: The frontend now triggers its own initial data load and scan
-                /*
-                let main_window_clone = main_window.clone();
-                tauri::async_runtime::spawn(async move {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(2000)).await;
-                    let _ = main_window_clone.emit("app-ready", ());
-                    log::info!("Emitted 'app-ready' event to frontend");
-                });
-                */
+                let setup_complete = {
+                    let conn = db.0.lock().unwrap();
+                    conn.query_row(
+                        "SELECT setup_complete FROM settings WHERE id = 1",
+                        [],
+                        |row| row.get::<_, i32>(0),
+                    )
+                    .map(|v| v == 1)
+                    .unwrap_or(false)
+                };
+
+                let _ = splashscreen.close();
+            
+                if setup_complete {
+                    let _ = main_window.show();
+                    let _ = main_window.set_focus();
+
+                    if let Err(e) = start_arduino_watcher(init_handle.clone()).await {
+                        log::error!("Failed to start Arduino watcher: {}", e);
+                    }
+                } else {
+                    let _ = setup_window.show();
+
+                    // Listen for the frontend event
+                    let main_w = main_window.clone();
+                    let handle_clone = init_handle.clone();
+                    
+                    init_handle.listen("setup-finished", move |event| {
+                        log::info!("Setup event received: {:?}", event.payload());
+                        
+                        // Show the hidden main window
+                        let _ = main_w.show();
+                        let _ = main_w.set_focus();
+
+                        // Start background services (like Arduino) now that we have settings
+                        let h = handle_clone.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = start_arduino_watcher(h).await;
+                        });
+                    });
+                }
             });
 
             Ok(())
@@ -173,7 +174,6 @@ fn main() {
             scan_arduino_now,
             start_reading_from_port,
             stop_reading_from_port,
-            save_log_directory,
             set_setup_complete,
             save_admission,
             save_patient,
@@ -187,8 +187,11 @@ fn main() {
             get_patient_count,
             get_patient_by_admission_no,
             delete_patient_by_admission_no,
+            save_setup_settings,
             update_patient_data,
-            upsert_patient_metadata
+            upsert_patient_metadata,
+            get_default_paths,
+            get_app_settings
         ])
         .run(tauri::generate_context!())
         .expect("Error while running Tauri application");

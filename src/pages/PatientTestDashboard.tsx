@@ -36,9 +36,14 @@ interface ArduinoDevice {
 type ReadingSet = { time: string; value: number }[];
 
 export default function PatientTestDashboard() {
+    
     // Hooks and State
     const { devices } = useSelector((state: RootState) => state.arduino);
-    const { admissionNo } = useParams<{ admissionNo: string }>();
+    const { baud_rate_default } = useSelector((state: RootState) => state.settings)
+    const { admissionNo: encodedAdmissionNo } = useParams<{ admissionNo: string }>();
+
+    const admissionNo = encodedAdmissionNo ? decodeURIComponent(encodedAdmissionNo) : null;
+    
     const navigate = useNavigate();
 
     const [patientData, setPatientData] = useState<PatientMetadata | null>(null);
@@ -78,7 +83,7 @@ export default function PatientTestDashboard() {
         try {
             // Placeholder: Assume this Rust command starts the hardware test
             // await invoke("start_test_cycle", { port, sampleType });
-            await invoke("start_reading_from_port", { portName, baudRate: 9600 });
+            await invoke("start_reading_from_port", { portName, baudRate: baud_rate_default });
             console.log(portName, sampleType)
             toast.dismiss();
             toast.success(`Test for ${sampleType} cells initiated.`);
@@ -142,6 +147,7 @@ export default function PatientTestDashboard() {
         let unlistenData: UnlistenFn | undefined;
         let unlistenCycle: UnlistenFn | undefined;
         let unlistenStop: UnlistenFn | undefined; // Add listener for cycle stop/timeout
+        let unlistenTimeout: UnlistenFn | undefined;
 
         const extractAndPlotData = (line: string, time: string) => {
             const regex = /Output Voltage \((ON|OFF)\): ([\d.]+) V/;
@@ -216,7 +222,7 @@ export default function PatientTestDashboard() {
             });
             
             // --- Cycle Stop/Timeout Listener (Cleanup) ---
-            unlistenStop = await listen<{ port: string; reason: string }>("arduino-test-stopped", (e) => {
+            unlistenStop = await listen<{ port: string; reason: string }>("arduino-reading-stopped", (e) => {
                 setReadingPorts(prev => {
                     const next = new Set(prev);
                     next.delete(e.payload.port);
@@ -225,12 +231,23 @@ export default function PatientTestDashboard() {
                 toast.error(`Test on ${e.payload.port} stopped: ${e.payload.reason}`);
             });
 
+            unlistenTimeout = await listen<{ port: string; message: string }>("arduino-timeout", (e) => {
+                const port = e.payload.port;
+                setReadingPorts(prev => {
+                    const next = new Set(prev);
+                    next.delete(port);
+                    return next;
+                });
+                toast.error(e.payload.message);
+            });
+
         })();
 
         return () => {
             unlistenData?.();
             unlistenCycle?.();
             unlistenStop?.();
+            unlistenTimeout?.();
         };
     }, [sampleType]); 
 
@@ -288,8 +305,8 @@ export default function PatientTestDashboard() {
         setNormalCellReadings([]);
         setCancerCellReadings([]);
         setChartData([]);
-
-        navigate(`/analytics/${patientData.admission_no}`);
+        const encodedAdmissionNo = encodeURIComponent(patientData.admission_no);
+        navigate(`/analytics/${encodedAdmissionNo}`);
 
     } catch (err: any) {
         toast.error(err.message || `Failed to save admission and test data: ${err}`);

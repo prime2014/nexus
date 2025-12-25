@@ -1,9 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit';
 import arduinoReducer from './arduinoSlice';
+import settingsReducer from "./settingsSlice";
 
 export const store = configureStore({
   reducer: {
     arduino: arduinoReducer,
+    settings: settingsReducer
   },
 });
 

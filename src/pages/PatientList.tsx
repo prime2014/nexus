@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useLayoutEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
@@ -11,6 +11,8 @@ import "./PatientList.css";
 import { Tooltip } from 'primereact/tooltip';
 import { useNavigate } from "react-router-dom";
 import { FaVial } from "react-icons/fa";
+import { useSelector } from "react-redux"; 
+import { RootState } from "../store";
 
 // NOTE: PatientRecord should mirror the Rust PatientRecord struct
 interface PatientRecord {
@@ -45,17 +47,20 @@ const initialFormState: PatientForm = {
 }
 
 export default function PatientList() {
+    const { default_doctor_name } = useSelector((state: RootState) => state.settings)
     const [patients, setPatients] = useState<PatientRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [currentPatient, setCurrentPatient] = useState<PatientForm | null>(null);
-    const [isSaving, setIsSaving] = useState(false); // 🆕 New state for loading indicator
+    const [isSaving, setIsSaving] = useState(false);
     const navigate = useNavigate();
     
     // 🆕 New state for tracking Create vs. Edit mode
     const [isNewPatient, setIsNewPatient] = useState(false); 
     
     const [globalFilterValue, setGlobalFilterValue] = useState('');
+
+    
 
     /**
      * Fetches patients, supporting both full list and search queries.
@@ -103,7 +108,8 @@ export default function PatientList() {
 
     const handleViewAnalytics = (admissionNo: string) => {
         // Programmatically navigate to the analytics page, passing the ID
-        navigate(`/analytics/${admissionNo}`); 
+        const encodedAdmissionNo = encodeURIComponent(admissionNo);
+        navigate(`/analytics/${encodedAdmissionNo}`); 
     };
 
     const handleEdit = (patient: PatientRecord) => {
@@ -122,9 +128,12 @@ export default function PatientList() {
 
     const handleSavePatient = async () => {
         if (!currentPatient) return;
-        
+        if (!currentPatient.doctor_in_charge) {
+            currentPatient.doctor_in_charge = default_doctor_name;
+        }
+        console.log(currentPatient)
         setIsSaving(true);
-        
+       
         try {
             if (isNewPatient) {
                 // Creation: Uses the command that handles the full patient creation
@@ -162,7 +171,8 @@ export default function PatientList() {
     const handleConductTest = (admissionNo: string) => {
         // Navigate to the test page, passing the patient's admission number
         console.log("THE NAVIGATE ADMISSION NO: ", admissionNo)
-        navigate(`/test/${admissionNo}`); 
+        let encodedAdmissionNo = encodeURIComponent(admissionNo)
+        navigate(`/test/${encodedAdmissionNo}`); 
     };
 
     

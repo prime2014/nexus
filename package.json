@@ -15,8 +15,9 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.4.2",
     "@tauri-apps/plugin-fs": "^2.4.4",
-    "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-opener": "^2.5.2",
     "chart.js": "^4.5.1",
+    "framer-motion": "^12.23.26",
     "lucide-react": "^0.553.0",
     "primeflex": "^4.0.0",
     "primeicons": "^7.0.0",
@@ -30,6 +31,10 @@
     "recharts": "^3.3.0"
   },
   "devDependencies": {
+    "@babel/cli": "^7.28.3",
+    "@babel/core": "^7.28.5",
+    "@babel/preset-react": "^7.28.5",
+    "@babel/preset-typescript": "^7.28.5",
     "@tailwindcss/vite": "^4.1.16",
     "@tauri-apps/cli": "^2",
     "@types/react": "^19.1.8",

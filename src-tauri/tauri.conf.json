@@ -10,6 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
+    
     "windows": [
       {
       "title": "Nexus",
@@ -36,13 +37,15 @@
     },
     {
         "label": "setupwizard",
-        "url": "setup.html",
+        "url": "index.html#/setup",
         "title": "Nexus Medical - Setup",
-        "width": 650,
-        "height": 580,
+        "width": 1200,
+        "height": 900,
+        "decorations": true,
         "resizable": false,
         "center": true,
-        "visible": false
+        "visible": false,
+        "closable": true
     }
     ],
     "security": {

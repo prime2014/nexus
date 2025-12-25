@@ -3,12 +3,18 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": [
-    "main"
+    "main",
+    "splashscreen",
+    "setupwizard"
   ],
   "permissions": [
     "core:default",
     "opener:default",
     "fs:allow-open",
+    "core:window:allow-close",
+    "dialog:allow-open",
+    "dialog:default",
+    "core:window:allow-show",
     "fs:allow-read-dir",
     "fs:allow-read",
     {

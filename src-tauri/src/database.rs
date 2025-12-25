@@ -29,6 +29,17 @@ pub struct PatientRecord {
     pub doctor: Option<String>,
 }
 
+#[derive(serde::Serialize, Debug)]
+pub struct AppSettings {
+    pub theme: String,
+    pub baud_rate_default: u32,
+    pub auto_connect_enabled: bool,
+    pub default_doctor_name: String,
+    pub log_level: String,
+    pub log_file_location: String,
+    pub sqlite_file_path: String
+}
+
 
 #[derive(serde::Serialize)]
 pub struct AdmissionRecord {
@@ -131,6 +142,7 @@ pub fn init_database(app: &AppHandle) -> Result<Connection, Box<dyn std::error::
             serial_number TEXT,
             product TEXT,
             custom_name TEXT,
+            device_unit TEXT,
             last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -143,7 +155,7 @@ pub fn init_database(app: &AppHandle) -> Result<Connection, Box<dyn std::error::
             default_log_level TEXT NULL DEFAULT 'info',
             log_file_location TEXT NULL,
             sqlite_file_path TEXT NULL,
-            -- Ensures there is only ever one row (ID 1)
+            setup_complete BOOLEAN NOT NULL DEFAULT 0
             CHECK(id = 1) 
         );
 
@@ -254,33 +266,6 @@ pub fn save_patient(db: State<'_, Database>, data: PatientData) -> Result<(), St
    SAVE ADMISSION
 ----------------------------------------- */
 
-// #[tauri::command]
-// pub fn save_admission(db: State<'_, Database>, data: AdmissionData) -> Result<(), String> {
-//     let conn = db.0.lock().map_err(|e| e.to_string())?;
-
-//     conn.execute(
-//         "
-//         INSERT INTO admissions (
-//             admission_no,
-//             doctor_in_charge,
-//             technician,
-//             diabetes_test,
-//             cancer_tests
-//         )
-//         VALUES (?1, ?2, ?3, ?4, ?5)
-//         ",
-//         params![
-//             data.admission_no,
-//             data.doctor_in_charge,
-//             data.technician,
-//             data.diabetes_test,
-//             data.cancer_tests, // <- already JSON string
-//         ],
-//     )
-//     .map_err(|e| e.to_string())?;
-
-//     Ok(())
-// }
 
 #[tauri::command]
 pub fn save_admission(db: State<'_, Database>, data: AdmissionData) -> Result<(), String> {
@@ -639,47 +624,7 @@ pub fn update_device_alias(
 }
 
 
-// src/database.rs (or where your DB commands live)
 
-// #[tauri::command]
-// pub fn fetch_all_known_devices(db: State<Database>) -> Result<Vec<UsbDevice>, String> {
-//     let conn = db.0.lock().map_err(|e| e.to_string())?;
-
-//     let mut stmt = conn.prepare(
-//         "
-//         SELECT vid, pid, serial_number, product, custom_name
-//         FROM devices
-//         ORDER BY last_seen DESC;
-//         "
-//     ).map_err(|e| e.to_string())?;
-
-//     let device_iter = stmt.query_map(params![], |row| {
-//         Ok(UsbDevice {
-//             // Default volatile fields
-//             port: "N/A".to_string(), 
-//             // All devices from DB start as disconnected, status will be updated by scanner
-//             status: "disconnected".to_string(), 
-            
-//             // Persistent fields from DB
-//             vid: row.get(0)?,
-//             pid: row.get(1)?,
-//             serial_number: row.get(2)?,
-//             product: row.get(3)?,
-//             custom_name: row.get(4)?,
-//             // Add board_name for completeness, if your UsbDevice struct requires it
-//             board_name: row.get(3).unwrap_or("N/A".to_string()), 
-//         })
-//     }).map_err(|e| e.to_string())?;
-
-//     let devices: Result<Vec<UsbDevice>, rusqlite::Error> = device_iter.collect();
-//     devices.map_err(|e| e.to_string())
-// }
-
-
-
-// src-tauri/src/database.rs (Updated command signature)
-
- // Assuming your logging setup is working
 
 #[tauri::command]
 // 🛑 CRITICAL FIX: Use the 'static lifetime to ensure type consistency across the production build.
@@ -706,7 +651,7 @@ pub fn fetch_all_known_devices<R: Runtime>(
 
     let mut stmt = conn.prepare(
         "
-        SELECT vid, pid, serial_number, product, custom_name
+        SELECT vid, pid, serial_number, product, custom_name, device_unit
         FROM devices
         ORDER BY last_seen DESC;
         "
@@ -727,6 +672,7 @@ pub fn fetch_all_known_devices<R: Runtime>(
             serial_number: row.get(2)?,
             product: row.get(3)?,
             custom_name: row.get(4)?,
+            device_unit: row.get(5)?,
             board_name: row.get(3).unwrap_or("N/A".to_string()), 
         })
     }).map_err(|e| {
@@ -986,5 +932,78 @@ pub fn create_patient(
                 Err(e.to_string())
             }
         }
+    }
+}
+
+
+#[tauri::command]
+pub fn get_app_settings(app: tauri::AppHandle) -> Result<AppSettings, String> {
+    use tauri::path::BaseDirectory;
+
+    let db_path = app
+        .path()
+        .resolve("data", BaseDirectory::AppData)
+        .map_err(|e| e.to_string())?
+        .join("app.db");
+
+    log::info!("Opening database at: {:?}", db_path);
+
+    if !db_path.exists() {
+        log::warn!("Database file does not exist yet - returning defaults");
+        return Ok(default_settings());
+    }
+
+    let conn = rusqlite::Connection::open(&db_path)
+        .map_err(|e| format!("Failed to open database: {}", e))?;
+
+    let test: i32 = conn
+        .query_row("SELECT 1", [], |row| row.get(0))
+        .map_err(|e| format!("Connection test failed: {}", e))?;
+
+    log::info!("Database connection successful (test query returned {})", test);
+
+    match conn.query_row(
+        "SELECT 
+            default_theme,
+            default_baud_rate,
+            auto_connect_enabled,
+            default_doctor_name,
+            default_log_level,
+            log_file_location,
+            sqlite_file_path
+         FROM settings WHERE id = 1",
+        [],
+        |row| Ok(AppSettings {
+            theme: row.get(0)?,
+            baud_rate_default: row.get::<_, i32>(1)? as u32,
+            auto_connect_enabled: row.get::<_, i32>(2)? == 1,
+            default_doctor_name: row.get(3)?,
+            log_level: row.get(4)?,
+            log_file_location: row.get(5)?,
+            sqlite_file_path: row.get(6)?,
+        }),
+    ) {
+        Ok(settings) => {
+            log::info!("Settings loaded successfully from database");
+            Ok(settings)
+        }
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            log::info!("No settings row found - returning defaults");
+            Ok(default_settings())
+        }
+        Err(e) => Err(format!("Database error: {}", e)),
+    }
+}
+
+
+fn default_settings() -> AppSettings {
+    AppSettings {
+        theme: "system".to_string(),
+        baud_rate_default: 9600,
+        auto_connect_enabled: true,
+        default_doctor_name: "".to_string(),
+        log_level: "info".to_string(),
+        log_file_location: "".to_string(),
+        sqlite_file_path: "".to_string(),
     }
 }

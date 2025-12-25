@@ -9,5 +9,6 @@ pub struct UsbDevice {
     pub product: Option<String>, 
     pub status: String,
     pub custom_name: Option<String>,
+    pub device_unit: Option<String>,
     pub board_name: String,
 }

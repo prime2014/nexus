@@ -2,7 +2,7 @@
 use chrono::{Duration, Local};
 use log::info;
 use simplelog::{
-    ColorChoice, CombinedLogger, ConfigBuilder, LevelFilter, SharedLogger, TermLogger,
+    ColorChoice, CombinedLogger, ConfigBuilder, LevelFilter, TermLogger,
     TerminalMode, WriteLogger,
 };
 use std::fs::{self, OpenOptions};
