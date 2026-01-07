@@ -12,7 +12,7 @@
   "dependencies": {
     "@canvasjs/react-charts": "^1.0.2",
     "@reduxjs/toolkit": "^2.9.2",
-    "@tauri-apps/api": "^2",
+    "@tauri-apps/api": "^2.9.1",
     "@tauri-apps/plugin-dialog": "^2.4.2",
     "@tauri-apps/plugin-fs": "^2.4.4",
     "@tauri-apps/plugin-opener": "^2.5.2",

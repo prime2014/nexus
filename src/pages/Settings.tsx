@@ -10,6 +10,8 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
 import { setSettings } from '../store/settingsSlice';
+import { getVersion } from "@tauri-apps/api/app";
+import { ask } from '@tauri-apps/plugin-dialog';
 
 // 🌟 Import Updater & Process plugins
 import { check } from '@tauri-apps/plugin-updater';
@@ -59,21 +61,43 @@ export default function Settings() {
     const settings = useSelector((state: RootState) => state.settings);
     const dispatch = useDispatch<AppDispatch>();
 
-    // 🌟 New: Update Logic
     const handleCheckUpdate = async () => {
         setCheckingUpdate(true);
         try {
             const update = await check();
             if (update) {
-                const confirmUpdate = window.confirm(
-                    `New version ${update.version} is available! (Current: ${await invoke('get_app_version')})\n\nNotes: ${update.body}\n\nWould you like to install it now?`
-                );
+                const currentVersion = await getVersion();
+
+                const confirmUpdate = await ask(
+                    `A new version (${update.version}) is available. Your current version is ${currentVersion}.\n\nRelease Notes: ${update.body}\n\nWould you like to download and install it now?`, 
+                    { 
+                        title: 'Nexus Update Available',
+                        kind: 'info',
+                        okLabel: 'Update Now',
+                        cancelLabel: 'Later'
+                    }
+                )
+
+                console.log(confirmUpdate)
                 
                 if (confirmUpdate) {
-                    toast.loading("Downloading update...", { id: 'update-toast' });
-                    await update.downloadAndInstall();
-                    toast.success("Update installed! Relaunching...", { id: 'update-toast' });
+                    const toastId = toast.loading("Starting download...");
+                    await update.downloadAndInstall((event) => {
+                        switch (event.event) {
+                            case 'Started':
+                                toast.loading("Download started...", { id: toastId });
+                                break;
+                            case 'Progress':
+                                toast.loading(`Downloading...`, { id: toastId });
+                                break;
+                            case 'Finished':
+                                toast.success("Download complete! Installing...", { id: toastId });
+                                break;
+                        }
+                    });
                     await relaunch();
+                } else {
+                    return
                 }
             } else {
                 toast.success("Nexus is already up to date!");

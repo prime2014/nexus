@@ -86,6 +86,10 @@
   "plugins": {
     "updater": {
       "active": true,
+      "dialog": false,
+      "windows": {
+        "installMode": "basicUi"
+      },
       "endpoints": [
         "https://github.com/prime2014/nexus/releases/latest/download/latest.json"
       ],
