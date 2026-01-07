@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// The unified error enum for the entire application.
@@ -29,7 +29,6 @@ pub enum AppError {
     #[error("Unknown Error: {0}")]
     Unknown(String),
 }
-
 
 // Convert standard I/O errors
 impl From<std::io::Error> for AppError {

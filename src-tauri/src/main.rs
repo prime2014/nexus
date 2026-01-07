@@ -1,52 +1,35 @@
 // src/main.rs
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod database;
 mod arduino;
-mod types;
+mod database;
+mod errordefs;
 mod logging;
 mod setup;
-mod errordefs;
+mod types;
 mod user;
 
-use tauri::{AppHandle, Manager, State, Wry};
-use std::sync::atomic::{AtomicBool, Ordering};
 use once_cell::sync::Lazy;
+use std::sync::atomic::{AtomicBool, Ordering};
+use tauri::{AppHandle, Manager, State, Wry};
 use tauri_plugin_dialog::init;
 
 use tauri::Listener;
 
-use database::{
-    Database,
-    init_database,
-    get_logs,
-    log_event_command,
-    create_patient,
-    save_admission,
-    save_patient,
-    save_patient_with_admission,
-    search_patients,
-    get_all_patients,
-    search_admissions_by_patient,
-    update_device_alias,
-    fetch_all_known_devices,
-    get_patient_count,
-    get_patient_by_admission_no,
-    delete_patient_by_admission_no,
-    update_patient_data,
-    upsert_patient_metadata,
-    get_app_settings
-};
 use arduino::{
-    start_arduino_watcher,
-    stop_arduino_watcher,
-    scan_arduino_now,
-    start_reading_from_port,
+    scan_arduino_now, start_arduino_watcher, start_reading_from_port, stop_arduino_watcher,
     stop_reading_from_port,
 };
+use database::{
+    create_patient, delete_patient_by_admission_no, fetch_all_known_devices, get_admissions_count,
+    get_all_patients, get_app_settings, get_global_admission_stats, get_latest_5_admissions,
+    get_logs, get_patient_by_admission_no, get_patient_count, init_database, log_event_command,
+    save_admission, save_patient, save_patient_with_admission, search_admissions_by_patient,
+    search_patients, update_device_alias, update_patient_data, upsert_patient_metadata, Database,
+};
+use logging::init_logger;
 use setup::{get_default_paths, save_setup_settings, set_setup_complete};
 use user::get_current_user;
-use logging::init_logger;
 
 static SHUTDOWN_IN_PROGRESS: Lazy<AtomicBool> = Lazy::new(|| AtomicBool::new(false));
 
@@ -61,15 +44,18 @@ fn main() {
         }
     }
 
-    let _single_instance = tauri_plugin_single_instance::init(|app: &AppHandle<Wry>, _argv, _cwd| {
-        log::warn!("Another instance is already running. Bringing it to front.");
-        if let Some(window) = app.get_webview_window("main") {
-            let _ = window.show();
-            let _ = window.set_focus();
-        }
-    });
+    let _single_instance =
+        tauri_plugin_single_instance::init(|app: &AppHandle<Wry>, _argv, _cwd| {
+            log::warn!("Another instance is already running. Bringing it to front.");
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        });
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -94,9 +80,15 @@ fn main() {
             }
 
             // 3. Get window references
-            let splashscreen = app.get_webview_window("splashscreen").expect("Splashscreen not found");
-            let main_window = app.get_webview_window("main").expect("Main window not found");
-            let setup_window = app.get_webview_window("setupwizard").expect("Setup wizard not found");
+            let splashscreen = app
+                .get_webview_window("splashscreen")
+                .expect("Splashscreen not found");
+            let main_window = app
+                .get_webview_window("main")
+                .expect("Main window not found");
+            let setup_window = app
+                .get_webview_window("setupwizard")
+                .expect("Setup wizard not found");
 
             // 4. Graceful shutdown
             let shutdown_handle = app.handle().clone();
@@ -132,7 +124,7 @@ fn main() {
                 };
 
                 let _ = splashscreen.close();
-            
+
                 if setup_complete {
                     let _ = main_window.show();
                     let _ = main_window.set_focus();
@@ -146,10 +138,10 @@ fn main() {
                     // Listen for the frontend event
                     let main_w = main_window.clone();
                     let handle_clone = init_handle.clone();
-                    
+
                     init_handle.listen("setup-finished", move |event| {
                         log::info!("Setup event received: {:?}", event.payload());
-                        
+
                         // Show the hidden main window
                         let _ = main_w.show();
                         let _ = main_w.set_focus();
@@ -191,7 +183,10 @@ fn main() {
             update_patient_data,
             upsert_patient_metadata,
             get_default_paths,
-            get_app_settings
+            get_app_settings,
+            get_admissions_count,
+            get_global_admission_stats,
+            get_latest_5_admissions
         ])
         .run(tauri::generate_context!())
         .expect("Error while running Tauri application");

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./Analytics.css";
 import {
+    ComposedChart,
     BarChart,
     Bar,
     CartesianGrid,
@@ -9,12 +10,14 @@ import {
     YAxis,
     Tooltip,
     ResponsiveContainer,
-    Legend
+    Legend,
+    Line
     // ReferenceLine is no longer needed since we are using a separate chart
 } from "recharts";
 import { FaSearch, FaTimes, FaUserMd, FaVial } from 'react-icons/fa';
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "primereact/button";
+import { Paginator } from "primereact/paginator";
 
 // Constant to limit the number of data points displayed in the chart
 const MAX_CHART_ENTRIES = 5; 
@@ -63,8 +66,8 @@ function calculateAverageVoltage(jsonString: string): number | null {
 function getAdmissionAverage(
     admission: AdmissionRecord
 ): AggregateChartData | null {
-    const avgCancer = calculateAverageVoltage(admission.cancer_tests);
-    const avgReference = calculateAverageVoltage(admission.reference);
+    const avgCancer = calculateAverageVoltage(admission?.cancer_tests);
+    const avgReference = calculateAverageVoltage(admission?.reference);
 
     // Only return data if there is at least *one* valid average to plot
     if (avgCancer === null && avgReference === null) return null;
@@ -94,31 +97,79 @@ export default function Analytics() {
     const [admissions, setAdmissions] = useState<AdmissionRecord[]>([]);
     const [loading, setLoading] = useState(false);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const [first, setFirst] = useState(0);
+    const [rows, setRows] = useState(5); 
+    const [totalRecords, setTotalRecords] = useState(0);
+    const [globalStats, setGlobalStats] = useState({ avg_cancer: 0, avg_reference: 0 });
+    const [chartAdmissions, setChartAdmissions] = useState<AdmissionRecord[]>([]);
+    const [visibleMetrics, setVisibleMetrics] = useState({
+        avg_reference_voltage: true,
+        avg_cancer_voltage: true,
+        cumulativeAvg: true
+    });
     const navigate = useNavigate();
 
     const handleGoBack = () => navigate(-1);
 
-    async function handleSearch(searchQuery = query) {
+    const handleLegendClick = (e: any) => {
+        const { dataKey } = e;
+        setVisibleMetrics((prev) => ({
+            ...prev,
+            [dataKey]: !prev[dataKey as keyof typeof visibleMetrics]
+        }));
+    };
+
+    const onPageChange = (event: any) => {
+        setFirst(event.first);
+        setRows(event.rows);
+    };
+
+    
+    
+    // 2. Modified handleSearch to fetch BOTH count and data
+    async function handleSearch(searchQuery = query, currentFirst = first, currentRows = rows) {
         if (!searchQuery.trim()) return;
         setLoading(true);
-        if(isInitialLoad) setQuery(searchQuery); 
 
         try {
-            const results = await invoke<AdmissionRecord[]>(
-                "search_admissions_by_patient",
-                { query: searchQuery }
-            );
-            setAdmissions(results);
+            const [tableResults, count, globalStatsData, chartResults] = await Promise.all([
+                // Data for the TABLE (Paginated)
+                invoke<AdmissionRecord[]>("search_admissions_by_patient", { 
+                    query: searchQuery, limit: currentRows, offset: currentFirst 
+                }),
+                // Total count for PAGINATOR
+                invoke<number>("get_admissions_count", { query: searchQuery }),
+                // Data for STAT CARDS (Global)
+                invoke<any>("get_global_admission_stats", { query: searchQuery }),
+                // Data for the CHART (Always latest 5)
+                invoke<AdmissionRecord[]>("get_latest_5_admissions", { query: searchQuery })
+            ]);
+
+            setAdmissions(tableResults);
+            setTotalRecords(count);
+            setGlobalStats(globalStatsData);
+            setChartAdmissions(chartResults); // This ensures the chart stays consistent
         } catch (err) {
             console.error("Search failed:", err);
-            setAdmissions([]);
         } finally {
             setLoading(false);
             setIsInitialLoad(false);
         }
     }
+
+    // 3. Reset pagination when a NEW search is performed manually
+    const triggerNewSearch = () => {
+        setFirst(0); // Go back to page 1
+        handleSearch(query, 0, rows);
+    };
+
+    // Re-fetch when page changes
+    useEffect(() => {
+        if (query.trim()) {
+            handleSearch(query, first, rows);
+        }
+    }, [first, rows]);
     
-    // Function to clear search results and query
     const handleClear = () => {
         setQuery("");
         setAdmissions([]);
@@ -135,19 +186,36 @@ export default function Analytics() {
         }
     }, [patientId]);
 
-    // Memoize the aggregated chart data calculation (full list)
+    const calculateAverage = (readings: number[]): number => {
+        if (readings.length === 0) return 0;
+        const sum = readings.reduce((acc, val) => acc + val, 0);
+        return sum / readings.length;
+    };
+
+    const getTrend = (current: number[], previousAvg: number = 0) => {
+        const currentAvg = calculateAverage(current);
+        if (current.length < 2) return null; // Need at least two points for a trend
+        
+        const diff = currentAvg - previousAvg;
+        const isUp = diff > 0;
+        
+        return {
+            icon: isUp ? "pi pi-arrow-up" : "pi pi-arrow-down",
+            color: isUp ? "#34d399" : "#f87171",
+            label: `${isUp ? '+' : ''}${diff.toFixed(4)}V`
+        };
+    };
+
+    // Change the dependency from 'admissions' to 'chartAdmissions'
     const allAggregatedChartData: AggregateChartData[] = useMemo(() => {
-        return admissions
+        return chartAdmissions
             .map(getAdmissionAverage)
             .filter((data): data is AggregateChartData => data !== null);
-    }, [admissions]);
+    }, [chartAdmissions]);
 
-    /**
-     * This memoized variable slices the data to only show the MAX_CHART_ENTRIES.
-     */
+    // You can now simplify this because the backend already limited it to 5
     const latestChartData: AggregateChartData[] = useMemo(() => {
-        // NOTE: The full admissions list is sorted DESC (latest first).
-        return allAggregatedChartData.slice(0, MAX_CHART_ENTRIES);
+        return allAggregatedChartData; 
     }, [allAggregatedChartData]);
 
     const patientName =
@@ -185,8 +253,8 @@ export default function Analytics() {
 
         return [{
             name: "Overall Averages",
-            avg_cancer_voltage: parseFloat(stats.avgCancerVoltage),
-            avg_reference_voltage: parseFloat(stats.avgReferenceVoltage),
+            avg_cancer_voltage: parseFloat(globalStats.avg_cancer.toFixed(3)),
+            avg_reference_voltage: parseFloat(globalStats.avg_reference.toFixed(3)),
         }];
     }, [stats]);
 
@@ -247,6 +315,68 @@ export default function Analytics() {
         return null;
     };
 
+    const getTrendData = (currentVal: number, globalAvg: number) => {
+        if (!currentVal || !globalAvg) return null;
+        
+        const diff = currentVal - globalAvg;
+        // Fix: Wrap the toFixed result in Number()
+        const percentChange = Number(((diff / globalAvg) * 100).toFixed(1)); 
+        
+        const isIncreasing = diff > 0;
+        
+        return {
+            isIncreasing,
+            percentChange: Math.abs(percentChange), // This will now work!
+            icon: isIncreasing ? "pi pi-arrow-up" : "pi pi-arrow-down",
+            color: isIncreasing ? "#f87171" : "#34d399" 
+        };
+    };
+
+    const latestAdmission = admissions[0]; // Assuming index 0 is newest
+    const latestAvg = getAdmissionAverage(latestAdmission);
+   
+    const chartDataWithCumulativeTrend = useMemo(() => {
+    // 1. Keep the data in the order fetched (Newest -> Oldest)
+    const newestToOldest = chartAdmissions
+        .map(getAdmissionAverage)
+        .filter((d): d is AggregateChartData => d !== null);
+
+    let runningTotal = 0;
+    
+    return newestToOldest.map((item, index) => {
+        runningTotal += item.avg_cancer_voltage;
+        // Cumulative average from the newest point backwards
+        const cumulativeAvg = runningTotal / (index + 1);
+
+        return {
+            ...item,
+            cumulativeAvg: parseFloat(cumulativeAvg.toFixed(4))
+        };
+    });
+}, [chartAdmissions]);
+
+
+
+    const rollingStats = useMemo(() => {
+        if (chartAdmissions.length === 0) return { cancer: 0, reference: 0 };
+
+        // Process each of the 5 admissions through your existing helper
+        const processed = chartAdmissions
+            .map(getAdmissionAverage)
+            .filter((d): d is AggregateChartData => d !== null);
+
+        const sumCancer = processed.reduce((acc, curr) => acc + curr.avg_cancer_voltage, 0);
+        const sumRef = processed.reduce((acc, curr) => acc + curr.avg_reference_voltage, 0);
+
+        return {
+            cancer: sumCancer / processed.length,
+            reference: sumRef / processed.length
+        };
+    }, [chartAdmissions]);
+
+    
+   
+
     return (
         <div className="analytics-container">
 
@@ -277,9 +407,13 @@ export default function Analytics() {
                             if (e.key === 'Enter') handleSearch(query);
                         }}
                     />
-                    <button onClick={() => handleSearch(query)} disabled={loading || !query.trim()}>
+                    {/* <button onClick={() => handleSearch(query)} disabled={loading || !query.trim()}>
+                        <FaSearch /> {loading ? "Searching..." : "Search"}
+                    </button> */}
+                    <button onClick={triggerNewSearch} disabled={loading || !query.trim()}>
                         <FaSearch /> {loading ? "Searching..." : "Search"}
                     </button>
+
                     <button 
                         className="clear-btn"
                         onClick={handleClear} 
@@ -308,17 +442,11 @@ export default function Analytics() {
                         <div className="stat-card">
                             <span className="stat-icon"><FaTimes /></span>
                             <div className="stat-info">
-                                <p className="stat-value">{stats.totalAdmissions}</p>
+                                <p className="stat-value">{totalRecords}</p>
                                 <p className="stat-label">Total Admissions</p>
                             </div>
                         </div>
-                        <div className="stat-card">
-                            <span className="stat-icon"><FaVial /></span>
-                            <div className="stat-info">
-                                <p className="stat-value">{stats.totalTests}</p>
-                                <p className="stat-label">Tests Recorded</p>
-                            </div>
-                        </div>
+                       
                         <div className="stat-card">
                             <span className="stat-icon"><FaUserMd /></span>
                             <div className="stat-info">
@@ -326,18 +454,28 @@ export default function Analytics() {
                                 <p className="stat-label">Doctors Involved</p>
                             </div>
                         </div>
+                        
                         <div className="stat-card stat-card-cancer">
                             <span className="stat-icon">C</span>
                             <div className="stat-info">
-                                <p className="stat-value">{stats.avgCancerVoltage}</p>
-                                <p className="stat-label">Overall Avg Cancer V</p>
+                                {/* Wrap everything in a flex container to align them horizontally */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <p className="stat-value" style={{ margin: 0 }}>
+                                        {globalStats.avg_cancer.toFixed(4)}
+                                        
+                                    </p>
+                                </div>
+                                
+                                <p className="stat-label">Global Avg Cancer V</p>
                             </div>
                         </div>
+
                         <div className="stat-card stat-card-reference"> 
                             <span className="stat-icon">R</span>
                             <div className="stat-info">
-                                <p className="stat-value">{stats.avgReferenceVoltage}</p>
-                                <p className="stat-label">Overall Avg Reference V</p>
+                                {/* Use globalStats instead of stats */}
+                                <p className="stat-value">{globalStats.avg_reference.toFixed(4)}</p>
+                                <p className="stat-label">Global Avg Reference V</p>
                             </div>
                         </div>
                     </div>
@@ -349,42 +487,68 @@ export default function Analytics() {
                         
                         {/* --- 1. Comparative Admissions Chart (Large) --- */}
                         <div className="chart-item comparative-chart">
-                            <h2>Latest {MAX_CHART_ENTRIES} Admission Voltages</h2>
+                            <h2 style={{ display: "flex", justifyContent:"space-between", alignItems: "center" }}>
+                                <span>Latest {MAX_CHART_ENTRIES} Admission Voltages</span>
+                                <Button 
+                                onClick={() => setVisibleMetrics({ 
+                                    avg_reference_voltage: true, 
+                                    avg_cancer_voltage: true, 
+                                    cumulativeAvg: true 
+                                })}
+                                size="small"
+                                outlined
+                                label="Show All Metrics"
+                                className="reset-btn w-fit"
+                            />
+                            </h2>
+                            
                             {admissions.length > MAX_CHART_ENTRIES && (
                                 <p className="chart-note">
                                     *Chart displays the **latest {MAX_CHART_ENTRIES} admissions** for better readability.
                                 </p>
                             )}
+                            
                             <div className="chart-container-lg">
                                 <ResponsiveContainer width="100%" height={450}>
-                                    <BarChart
-                                        data={latestChartData}
+                                    <ComposedChart
+                                        data={chartDataWithCumulativeTrend}
                                         margin={{ top: 40, right: 30, left: 20, bottom: 5 }}
                                     >
-                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
                                         <XAxis dataKey="name" angle={-45} textAnchor="end" height={130} interval={0} />
-                                        <YAxis label={{ value: 'Average Voltage (V)', angle: -90, position: 'insideLeft' }} />
+                                        <YAxis label={{ value: 'Voltage (V)', angle: -90, position: 'insideLeft' }} />
                                         <Tooltip content={<CustomTooltip />} />
+                                        
+                                        {/* 🌟 Legend with Click Handler */}
                                         <Legend 
-                                            verticalAlign="top"
-                                            align="center"
-                                            wrapperStyle={{ top: 0, paddingBottom: '10px' }} 
+                                            verticalAlign="top" 
+                                            align="center" 
+                                            onClick={handleLegendClick} 
+                                            wrapperStyle={{ cursor: 'pointer', paddingBottom: '20px' }}
                                         />
+
+                                        {/* Reference Bars */}
                                         <Bar 
-                                            barSize={20} 
                                             dataKey="avg_reference_voltage" 
+                                            hide={!visibleMetrics.avg_reference_voltage} // Logic to hide
                                             fill="#4bc0c0" 
-                                            name="Reference (Normal Cell) Avg V" 
+                                            name="Ref Avg V" 
+                                            barSize={20} 
                                             radius={[4, 4, 0, 0]} 
                                         />
+                                        
+                                        {/* Cancer Bars */}
                                         <Bar 
-                                            barSize={20} 
                                             dataKey="avg_cancer_voltage" 
+                                            hide={!visibleMetrics.avg_cancer_voltage} // Logic to hide
                                             fill="#007bff" 
                                             name="Cancer Test Avg V" 
+                                            barSize={20} 
                                             radius={[4, 4, 0, 0]} 
                                         />
-                                    </BarChart>
+
+                                       
+                                    </ComposedChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
@@ -394,7 +558,7 @@ export default function Analytics() {
                         <div className="chart-item overall-chart">
                             <h2>Overall Patient Average</h2>
                             <p className="chart-note">
-                                *Average based on all {stats.totalTests} valid tests recorded.
+                                *Average based on all {totalRecords} valid tests recorded.
                             </p>
                             <div className="chart-container-sm">
                                 <ResponsiveContainer width="100%" height={400}>
@@ -487,6 +651,20 @@ export default function Analytics() {
                                  </tbody>
                              </table>
                         </div>
+
+                        
+                    {/* Update Paginator */}
+                    <div className="pagination-container">
+                        <Paginator 
+                            first={first} 
+                            rows={rows} 
+                            totalRecords={totalRecords} 
+                            rowsPerPageOptions={[5, 10, 20]} 
+                            onPageChange={onPageChange}
+                            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+                            currentPageReportTemplate="Showing {first} to {last} of {totalRecords} records"
+                        />
+                    </div>
                     </div>
                     {/* --- /Individual Admission Details Table --- */}
                 </>

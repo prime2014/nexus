@@ -200,10 +200,11 @@
 }
 
 .table-wrapper {
-    overflow-x: auto; /* Makes table scroll horizontally on small screens */
     margin-bottom: 20px;
     border: 1px solid var(--border-color);
     border-radius: 6px;
+    min-height: 400px; 
+    overflow-x: auto;
 }
 
 .admissions-table {
@@ -307,4 +308,11 @@
 .overall-chart {
     padding: 10px 0 10px 30px; 
     border-left: 1px solid #ccc; 
+}
+
+.pagination-container {
+    background: #fff;
+    padding: 1rem;
+    border-top: 1px solid #eee;
+    border-radius: 0 0 8px 8px;
 }

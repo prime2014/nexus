@@ -2933,11 +2933,13 @@ dependencies = [
  "dialog",
  "dirs-next",
  "fs",
+ "libsqlite3-sys",
  "log",
  "once_cell",
  "printpdf",
  "rusb",
  "rusqlite",
+ "rusqlite_migration",
  "serde",
  "serde_json",
  "serialport",
@@ -2948,6 +2950,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-fs",
  "tauri-plugin-opener",
+ "tauri-plugin-process",
  "tauri-plugin-shell",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
@@ -4315,6 +4318,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusqlite_migration"
+version = "2.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fc9767ae49274bafd3e55be9d30405a033b7a59548327d87fd4971fbb58e264"
+dependencies = [
+ "log",
+ "rusqlite",
+]
+
+[[package]]
 name = "rust-fontconfig"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5368,6 +5381,16 @@ dependencies = [
  "url",
  "windows",
  "zbus",
+]
+
+[[package]]
+name = "tauri-plugin-process"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d55511a7bf6cd70c8767b02c97bf8134fa434daf3926cfc1be0a0f94132d165a"
+dependencies = [
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]

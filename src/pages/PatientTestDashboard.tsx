@@ -15,6 +15,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { FaArrowLeft, FaUser, FaMicroscope, FaCheckCircle, FaTimesCircle, FaWrench, FaChartLine } from 'react-icons/fa';
 // Note the updated CSS file name
 import "./DashboardTest.css"; 
+import { ask } from "@tauri-apps/plugin-dialog";
 
 // Simplified Patient Metadata for display
 interface PatientMetadata {
@@ -35,6 +36,8 @@ interface ArduinoDevice {
 // Data structures for storing readings
 type ReadingSet = { time: string; value: number }[];
 
+type SampleType = "normal" | "cancer" | "glucose";
+
 export default function PatientTestDashboard() {
     
     // Hooks and State
@@ -49,13 +52,14 @@ export default function PatientTestDashboard() {
     const [patientData, setPatientData] = useState<PatientMetadata | null>(null);
     const [loadingPatient, setLoadingPatient] = useState(true);
     const [consoleLines, setConsoleLines] = useState<string[]>([]);
+    const [glucoseReading, setGlucoseReading] = useState<number | null>(null);
+    const [sampleType, setSampleType] = useState<SampleType>("normal");
     const consoleLinesRef = useRef<string[]>([]);
     const [readingPorts, setReadingPorts] = useState<Set<string>>(new Set());
     const consoleRef = useRef<HTMLDivElement>(null);
     const [isSaving, setIsSaving] = useState(false);
     
-    // Form data to capture sample type
-    const [sampleType, setSampleType] = useState<"normal" | "cancer">("normal");
+   
 
     // Live Chart Data
     const [chartData, setChartData] = useState<ReadingSet>([]);
@@ -142,7 +146,14 @@ export default function PatientTestDashboard() {
             .filter((v): v is number => v !== null); 
     }
 
-    // --- Serial data listener (Modified to update chart data) ---
+
+    const getTestTypeFromDevice = (device: ArduinoDevice): SampleType => {
+        const name = (device.custom_name || device.product || "").toLowerCase();
+        if (name.includes("glucose") || name.includes("diabetes")) return "glucose";
+        return "normal"; 
+    };
+
+ 
     useEffect(() => {
         let unlistenData: UnlistenFn | undefined;
         let unlistenCycle: UnlistenFn | undefined;
@@ -200,10 +211,10 @@ export default function PatientTestDashboard() {
                 });
                 
                 // Extract and store the final 'OFF' voltages from the latest console run
-                const newOffVoltages = extractOffVoltages(consoleLinesRef.current); // <--- READ FROM REF HERE
-                console.log("THE CONSOLE LINES")
-                console.log(consoleLinesRef.current) // <--- Log the ref, not the state
-                // Note: The next line is important! Clear the ref *before* clearing the console lines state.
+                const newOffVoltages = extractOffVoltages(consoleLinesRef.current);
+                
+                console.log(consoleLinesRef.current) 
+                
                 consoleLinesRef.current = [];
 
                 console.log("THE OFF VOLTAGES: ", newOffVoltages)
@@ -228,7 +239,6 @@ export default function PatientTestDashboard() {
                     next.delete(e.payload.port);
                     return next;
                 });
-                toast.error(`Test on ${e.payload.port} stopped: ${e.payload.reason}`);
             });
 
             unlistenTimeout = await listen<{ port: string; message: string }>("arduino-timeout", (e) => {
@@ -265,55 +275,44 @@ export default function PatientTestDashboard() {
     };
 
     const handleSave = async () => {
-    if (!patientData) return;
-    
-    if (normalCellReadings.length === 0 && cancerCellReadings.length === 0) {
-        toast.error("Acquire data for at least one sample type before saving.");
-        return;
-    }
-
-    setIsSaving(true);
-    
-    try {
-        const referenceObject = {
-            voltage_off: normalCellReadings,
-            test_date: new Date().toISOString().split('T')[0],
-        };
-        const referenceJsonString = JSON.stringify(referenceObject);
-
-        const cancerTestObject = {
-            voltage_off: cancerCellReadings,
-            test_date: new Date().toISOString().split('T')[0],
-        };
-        const cancerTestJsonString = JSON.stringify(cancerTestObject);
-
-        const admissionDataToSave = {
-            admission_no: patientData.admission_no,
-            doctor_in_charge: patientData.doctor,
-            technician: '',
-            diabetes_test: null,
-            reference: referenceJsonString,
-            cancer_tests: cancerTestJsonString,
-        };
-
-        await invoke("save_admission", { data: admissionDataToSave });
-
-        toast.success(`Admission record and test data saved for patient ${patientData.admission_no}!`);
+        if (!patientData) return;
         
-        // Cleanup states after successful save
-        setConsoleLines([]);
-        setNormalCellReadings([]);
-        setCancerCellReadings([]);
-        setChartData([]);
-        const encodedAdmissionNo = encodeURIComponent(patientData.admission_no);
-        navigate(`/analytics/${encodedAdmissionNo}`);
+        if (normalCellReadings.length === 0 && cancerCellReadings.length === 0) {
+            toast.error("Acquire data for at least one sample type before saving.");
+            return;
+        }
 
-    } catch (err: any) {
-        toast.error(err.message || `Failed to save admission and test data: ${err}`);
-    }
+        setIsSaving(true);
+        
+        try {
+           
+            const admissionDataToSave = {
+                admission_no: patientData.admission_no,
+                doctor_in_charge: patientData.doctor,
+                technician: '', // You can pull this from auth state
+                diabetes_test: glucoseReading, // This goes to the INTEGER column
+                reference: JSON.stringify({ voltage_off: normalCellReadings }),
+                cancer_tests: JSON.stringify({ voltage_off: cancerCellReadings }),
+            };
 
-    setIsSaving(false);
-};
+            await invoke("save_admission", { data: admissionDataToSave });
+
+            toast.success(`Admission record and test data saved for patient ${patientData.admission_no}!`);
+            
+            // Cleanup states after successful save
+            setConsoleLines([]);
+            setNormalCellReadings([]);
+            setCancerCellReadings([]);
+            setChartData([]);
+            const encodedAdmissionNo = encodeURIComponent(patientData.admission_no);
+            navigate(`/analytics/${encodedAdmissionNo}`);
+
+        } catch (err: any) {
+            toast.error(err.message || `Failed to save admission and test data: ${err}`);
+        }
+
+        setIsSaving(false);
+    };
 
     const handleData = async (portName: string) => {
         const isReading = readingPorts.has(portName);
@@ -329,7 +328,23 @@ export default function PatientTestDashboard() {
         }
   };
 
-    const handleGoBack = () => navigate('/patients');
+    const handleGoBack = async () => {
+        const hasUnsavedData = normalCellReadings.length > 0 || cancerCellReadings.length > 0;
+
+        if (hasUnsavedData) {
+            // Native browser confirmation dialog
+            const confirmed = await ask(
+                `Unsaved data detected for ${patientName}.\n\n` + 
+                "Are you sure you want to leave? Your current readings will be lost.",
+                { title: 'Exit Page', kind: 'warning' }
+            );
+
+            if (!confirmed) {
+                return; // User clicked 'Cancel', stay on page
+            }
+        }
+        navigate('/patients');
+    }
     
     const patientName = patientData 
         ? `${patientData.firstname} ${patientData.lastname}` 
@@ -361,254 +376,464 @@ export default function PatientTestDashboard() {
     /* ------------------------------------------------------------------ */
     /* RENDER UI                                                          */
     /* ------------------------------------------------------------------ */
+    // return (
+    //     <div className="dashboard-container">
+    //         <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+
+    //         <div className="sticky-header-container">
+    //             <div className="dashboard-header-bar sticky-bar">
+    //                 <h1>Test Dashboard: {patientName}</h1>
+
+    //                 <Button 
+    //                     icon={<FaArrowLeft />} 
+    //                     label="Back to Patients" 
+    //                     severity="secondary" 
+    //                     className="w-fit"
+    //                     text 
+    //                     onClick={handleGoBack}
+    //                 />
+    //             </div>
+    //         </div>
+            
+    //         <div className="stats-grid mb-6">
+
+    //             {/* Normal Readings Card */}
+    //             <div className="stat-card stat-green">
+    //                 {normalCellReadings.length > 0 ? <FaCheckCircle size={30} className="icon" /> : <FaMicroscope size={30} className="icon" />}
+    //                 <div className="details">
+    //                     <p className="label">Normal Cell Readings</p>
+    //                     <h2 className="value">{normalCellReadings.length}</h2>
+    //                     <p className="sub-value">
+    //                         {normalCellReadings.length > 0 
+    //                             ? `Avg Voltage: ${avgNormalVoltage.toFixed(4)} V` 
+    //                             : 'Pending Acquisition'}
+    //                     </p>
+    //                 </div>
+    //                 {normalCellReadings.length > 0 && (
+    //                     <Button
+    //                         icon="pi pi-times"
+    //                         severity="warning"
+    //                         text
+    //                         className="p-button-sm clear-button"
+    //                         tooltip="Clear Normal Readings"
+    //                         onClick={() => handleClearReadings("normal")}
+    //                         aria-label="Clear Normal Readings"
+    //                         style={{ position: 'absolute', top: '10px', right: '10px' }}
+    //                     />
+    //                 )}
+    //             </div>
+
+    //             {/* Glucose Reading Card */}
+    //             <div className="stat-card stat-orange">
+    //                 <FaChartLine size={30} className="icon" />
+    //                 <div className="details">
+    //                     <p className="label">Glucose Reading</p>
+    //                     <h2 className="value">{glucoseReading ?? '--'}</h2>
+    //                     <p className="sub-value">{glucoseReading ? 'mg/dL' : 'Pending Test'}</p>
+    //                 </div>
+    //             </div>
+
+    //             {/* Cancer Readings Card */}
+    //             <div className="stat-card stat-red">
+    //                 {cancerCellReadings.length > 0 ? <FaCheckCircle size={30} className="icon" /> : <FaMicroscope size={30} className="icon" />}
+    //                 <div className="details">
+    //                     <p className="label">Cancer Cell Readings</p>
+    //                     <h2 className="value">{cancerCellReadings.length}</h2>
+    //                     <p className="sub-value">
+    //                         {cancerCellReadings.length > 0 
+    //                             ? `Avg Voltage: ${avgCancerVoltage.toFixed(4)} V` 
+    //                             : 'Pending Acquisition'}
+    //                     </p>
+    //                 </div>
+    //                 {cancerCellReadings.length > 0 && (
+    //                     <Button
+    //                         icon="pi pi-times"
+    //                         severity="warning"
+    //                         text
+    //                         className="p-button-sm clear-button"
+    //                         tooltip="Clear Cancer Readings"
+    //                         onClick={() => handleClearReadings("cancer")}
+    //                         aria-label="Clear Cancer Readings"
+    //                         style={{ position: 'absolute', top: '10px', right: '10px' }}
+    //                     />
+    //                 )}
+    //             </div>
+                
+    //             {/* Save Button Card */}
+    //             <div className="stat-card stat-purple">
+    //                 <Button 
+    //                     onClick={handleSave} 
+    //                     label={isSaving ? "Saving..." : "Save All Test Data"}
+    //                     icon="pi pi-save"
+    //                     loading={isSaving}
+    //                     severity="success"
+    //                     className="p-button-lg w-full"
+    //                     disabled={isSaving || (normalCellReadings.length === 0 && cancerCellReadings.length === 0)}
+    //                 />
+    //                 <p className="sub-value mt-2 text-center text-gray-400">
+    //                     {normalCellReadings.length + cancerCellReadings.length} total readings acquired.
+    //                 </p>
+    //             </div>
+    //         </div>
+
+    //         {/* ----- LIVE CONSOLE & CHARTS (Side-by-Side) ----- */}
+    //         <div className="main-content-grid">
+                
+    //             {/* 1. Live Console & Sample Selector */}
+    //             <div className="panel console-panel">
+    //                 <div className="panel-header">
+    //                     <FaWrench size={20} />
+    //                     <h2>Test Configuration & Console</h2>
+    //                 </div>
+
+    //                 <div className="sample-type-selector">
+    //                     <label className={`sample-option ${sampleType === "normal" ? 'active-normal' : ''}`}>
+    //                         <input 
+    //                             type="radio" 
+    //                             name="sampleType" 
+    //                             value="normal" 
+    //                             checked={sampleType === "normal"} 
+    //                             onChange={() => setSampleType("normal")} 
+    //                         />
+    //                         Normal Cell Sample
+    //                     </label>
+    //                     <label className={`sample-option ${sampleType === "cancer" ? 'active-cancer' : ''}`}>
+    //                         <input 
+    //                             type="radio" 
+    //                             name="sampleType" 
+    //                             value="cancer" 
+    //                             checked={sampleType === "cancer"} 
+    //                             onChange={() => setSampleType("cancer")} 
+    //                         />
+    //                         Cancer Cell Sample
+    //                     </label>
+    //                 </div>
+
+    //                 <div className="console-output" ref={consoleRef}>
+    //                     {consoleLines.length === 0 && <div className="text-center text-gray-500 p-4">Awaiting device output...</div>}
+    //                     {consoleLines.map((stamped, i) => {
+    //                         const original = stamped.replace(/^\[\d{2}:\d{2}:\d{2}\.\d{3}\]\s*/, "");
+    //                         let className = "console-line";
+    //                         if (original.includes("ON")) className += " on-line";
+    //                         if (original.includes("OFF")) className += " off-line";
+    //                         if (original.includes("cycles completed")) className += " done-line";
+    //                         if (original.includes("ERROR")) className += " error-line";
+    //                         return (
+    //                             <div key={i} className={className}>
+    //                                 {stamped}
+    //                             </div>
+    //                         );
+    //                     })}
+    //                 </div>
+    //                 <div className="console-footer">
+    //                     <Button 
+    //                         label="Clear Console"
+    //                         icon="pi pi-trash"
+    //                         severity="danger"
+    //                         text
+    //                         onClick={() => setConsoleLines([])}
+    //                     />
+    //                 </div>
+    //             </div>
+
+    //             {/* 2. Live Chart */}
+    //             <div className="panel chart-panel">
+    //                 <div className="panel-header">
+    //                     <FaChartLine size={20} />
+    //                     <h2>Live Voltage Trend ({sampleType === 'normal' ? 'Normal' : 'Cancer'} Cycle)</h2>
+    //                 </div>
+                    
+    //                 <div className="chart-wrapper">
+    //                     <ResponsiveContainer width="100%" height={360}>
+    //                         <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+    //                             <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+    //                             <XAxis dataKey="time" stroke="#ccc" />
+    //                             <YAxis 
+    //                                 domain={['auto', 'auto']} 
+    //                                 label={{ value: 'Voltage (V)', angle: -90, position: 'insideLeft', fill: '#ccc' }} 
+    //                                 stroke="#ccc" 
+    //                             />
+    //                             <Tooltip 
+    //                                 contentStyle={{ backgroundColor: '#222', border: '1px solid #444' }}
+    //                                 formatter={(value: number) => [`${value.toFixed(4)} V`, 'Voltage']}
+    //                                 labelFormatter={(label) => `Time: ${label}`}
+    //                             />
+    //                             <Legend />
+    //                             <Line 
+    //                                 type="monotone" 
+    //                                 dataKey="value" 
+    //                                 stroke={sampleType === 'normal' ? "#34d399" : "#f87171"} 
+    //                                 strokeWidth={3} 
+    //                                 name="Output Voltage"
+    //                                 dot={false}
+    //                                 isAnimationActive={false} 
+    //                             />
+    //                         </LineChart>
+    //                     </ResponsiveContainer>
+    //                 </div>
+    //                 <p className="chart-legend-note">
+    //                     Displaying the last 30 data points from the **{sampleType}** cell test cycle.
+    //                 </p>
+    //             </div>
+    //         </div>
+
+    //         {/* ----- DEVICE LIST (Bottom) ----- */}
+    //         <div className="devices-section">
+    //             <div className="devices-header">
+    //                 <h2>Connected Testing Devices ({connectedDevices.length})</h2>
+    //                 <p className="device-instruction">Select the appropriate sample type above, then click **Acquire Data** on a connected device to begin the test cycle.</p>
+    //             </div>
+                
+    //             {connectedDevices.length === 0 ? (
+    //                 <div className="no-devices-message">
+    //                     <FaTimesCircle size={30} className="text-red-500 mb-2" />
+    //                     <p>No devices detected. Please plug one in and ensure the application is running.</p>
+    //                 </div>
+    //             ) : (
+    //                 <div className="device-grid">
+    //                     {connectedDevices.map((d: ArduinoDevice) => ( 
+    //                     <div
+    //                         key={d.port}
+    //                         className={`device-card connected ${deviceReading(d) ? 'reading' : ''}`} // Status is always 'connected' here
+    //                     >
+    //                         <div className="device-header">
+    //                             <h3 className="device-name">{d.custom_name || d.product || "Unknown Device"}</h3>
+    //                             {/* Status badge will always be 'connected' here */}
+    //                             <span className={`status-badge status-connected`}>{d.status}</span> 
+    //                         </div>
+    //                         <p className="device-info">
+    //                             **Port:** {d.port}
+    //                         </p>
+                            
+    //                         <Button
+    //                             onClick={() => {
+    //                                 const autoType = getTestTypeFromDevice(d);
+    //                                 setSampleType(autoType); // Automatically switch UI to Glucose or Cancer
+    //                                 startTestCycle(d.port);
+    //                             }}
+                               
+    //                             disabled={d.status !== "connected" || readingPorts.has(d.port)} 
+    //                             label={
+    //                                 readingPorts.has(d.port) 
+    //                                     ? "Reading Data..." 
+    //                                     : `Acquire ${sampleType === 'normal' ? 'Normal' : 'Cancer'} Data`
+    //                             }
+    //                             icon={readingPorts.has(d.port) ? "pi pi-spin pi-spinner" : "pi pi-play"}
+    //                             severity={sampleType === 'normal' ? "success" : "danger"}
+    //                             className="p-button-sm w-full mt-3"
+    //                         />
+    //                     </div>
+    //                 ))}
+    //                 </div>
+    //             )}
+    //         </div>
+    //     </div>
+    // );
+
+
     return (
-        <div className="dashboard-container">
-            <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }} className="dashboard-header-bar">
-                <h1>Test Dashboard: {patientName}</h1>
-
+    <div className="dashboard-viewport">
+        <Toaster position="top-right" />
+        
+        {/* TOP COMPACT HEADER */}
+        <header className="compact-header">
+            <div className="patient-info">
+                <h1>{patientName}</h1>
+                <span className="admission-tag">PATIENT ID: {patientData.admission_no}</span>
+            </div>
+            <div className="header-actions">
                 <Button 
-                    icon={<FaArrowLeft />} 
+                    icon="pi pi-arrow-left" 
+                    style={{ marginTop: "0 !important" }}
                     label="Back to Patients" 
-                    severity="secondary" 
-                    className="w-fit"
-                    text 
-                    onClick={handleGoBack}
+                    className="p-button-text p-button-secondary p-button-sm back-patient-btn" 
+                    onClick={handleGoBack} 
                 />
             </div>
-            
-            <div className="stats-grid mb-6">
-                
-                {/* Patient Context Card */}
-                <div className="stat-card stat-blue">
-                    <FaUser size={30} className="icon" />
-                    <div className="details">
-                        <p className="label">Current Patient</p>
-                        <h2 className="value">{patientName}</h2>
-                        <p className="sub-value">Admission No: {admissionNo}</p>
-                    </div>
+        </header>
+
+        <main className="main-layout">
+            {/* LEFT ASIDE: DEVICE SELECTION */}
+            <aside className="device-sidebar">
+                <div className="sidebar-header">
+                    <h3>Connected Devices</h3>
+                    <span className="device-count">{connectedDevices.length} Active</span>
                 </div>
+                <div className="sidebar-scroll">
+                    {connectedDevices.map((d: ArduinoDevice) => {
+                        const isGlucose = getTestTypeFromDevice(d) === 'glucose';
+                        const isReading = readingPorts.has(d.port);
+                        
+                        // Identify if the current active pathway already has data
+                        const hasNormalData = normalCellReadings.length > 0;
+                        const hasCancerData = cancerCellReadings.length > 0;
 
-                {/* Normal Readings Card */}
-                <div className="stat-card stat-green">
-                    {normalCellReadings.length > 0 ? <FaCheckCircle size={30} className="icon" /> : <FaMicroscope size={30} className="icon" />}
-                    <div className="details">
-                        <p className="label">Normal Cell Readings</p>
-                        <h2 className="value">{normalCellReadings.length}</h2>
-                        <p className="sub-value">
-                            {normalCellReadings.length > 0 
-                                ? `Avg Voltage: ${avgNormalVoltage.toFixed(4)} V` 
-                                : 'Pending Acquisition'}
-                        </p>
-                    </div>
-                    {normalCellReadings.length > 0 && (
-                        <Button
-                            icon="pi pi-times"
-                            severity="warning"
-                            text
-                            className="p-button-sm clear-button"
-                            tooltip="Clear Normal Readings"
-                            onClick={() => handleClearReadings("normal")}
-                            aria-label="Clear Normal Readings"
-                            style={{ position: 'absolute', top: '10px', right: '10px' }}
-                        />
-                    )}
-                </div>
+                        const isPathFilled = !isGlucose && (
+                            (sampleType === 'normal' && hasNormalData) || 
+                            (sampleType === 'cancer' && hasCancerData)
+                        );
 
-                {/* Cancer Readings Card */}
-                <div className="stat-card stat-red">
-                    {cancerCellReadings.length > 0 ? <FaCheckCircle size={30} className="icon" /> : <FaMicroscope size={30} className="icon" />}
-                    <div className="details">
-                        <p className="label">Cancer Cell Readings</p>
-                        <h2 className="value">{cancerCellReadings.length}</h2>
-                        <p className="sub-value">
-                            {cancerCellReadings.length > 0 
-                                ? `Avg Voltage: ${avgCancerVoltage.toFixed(4)} V` 
-                                : 'Pending Acquisition'}
-                        </p>
-                    </div>
-                    {cancerCellReadings.length > 0 && (
-                        <Button
-                            icon="pi pi-times"
-                            severity="warning"
-                            text
-                            className="p-button-sm clear-button"
-                            tooltip="Clear Cancer Readings"
-                            onClick={() => handleClearReadings("cancer")}
-                            aria-label="Clear Cancer Readings"
-                            style={{ position: 'absolute', top: '10px', right: '10px' }}
-                        />
-                    )}
-                </div>
-                
-                {/* Save Button Card */}
-                <div className="stat-card stat-purple">
-                    <Button 
-                        onClick={handleSave} 
-                        label={isSaving ? "Saving..." : "Save All Test Data"}
-                        icon="pi pi-save"
-                        loading={isSaving}
-                        severity="success"
-                        className="p-button-lg w-full"
-                        disabled={isSaving || (normalCellReadings.length === 0 && cancerCellReadings.length === 0)}
-                    />
-                    <p className="sub-value mt-2 text-center text-gray-400">
-                        {normalCellReadings.length + cancerCellReadings.length} total readings acquired.
-                    </p>
-                </div>
-            </div>
-
-            {/* ----- LIVE CONSOLE & CHARTS (Side-by-Side) ----- */}
-            <div className="main-content-grid">
-                
-                {/* 1. Live Console & Sample Selector */}
-                <div className="panel console-panel">
-                    <div className="panel-header">
-                        <FaWrench size={20} />
-                        <h2>Test Configuration & Console</h2>
-                    </div>
-
-                    <div className="sample-type-selector">
-                        <label className={`sample-option ${sampleType === "normal" ? 'active-normal' : ''}`}>
-                            <input 
-                                type="radio" 
-                                name="sampleType" 
-                                value="normal" 
-                                checked={sampleType === "normal"} 
-                                onChange={() => setSampleType("normal")} 
-                            />
-                            Normal Cell Sample
-                        </label>
-                        <label className={`sample-option ${sampleType === "cancer" ? 'active-cancer' : ''}`}>
-                            <input 
-                                type="radio" 
-                                name="sampleType" 
-                                value="cancer" 
-                                checked={sampleType === "cancer"} 
-                                onChange={() => setSampleType("cancer")} 
-                            />
-                            Cancer Cell Sample
-                        </label>
-                    </div>
-
-                    <div className="console-output" ref={consoleRef}>
-                        {consoleLines.length === 0 && <div className="text-center text-gray-500 p-4">Awaiting device output...</div>}
-                        {consoleLines.map((stamped, i) => {
-                            const original = stamped.replace(/^\[\d{2}:\d{2}:\d{2}\.\d{3}\]\s*/, "");
-                            let className = "console-line";
-                            if (original.includes("ON")) className += " on-line";
-                            if (original.includes("OFF")) className += " off-line";
-                            if (original.includes("cycles completed")) className += " done-line";
-                            if (original.includes("ERROR")) className += " error-line";
-                            return (
-                                <div key={i} className={className}>
-                                    {stamped}
+                        return (
+                            <div key={d.port} className={`device-card-modern ${isReading ? 'is-active' : ''} ${isPathFilled ? 'is-locked' : ''}`}>
+                                <div className="card-accent" style={{ background: isGlucose ? '#f59e0b' : (sampleType === 'cancer' ? '#ef4444' : '#10b981') }}></div>
+                                
+                                <div className="device-info-main">
+                                    <div className="device-type-tag">
+                                        <span className="status-dot"></span>
+                                        {isGlucose ? 'Enzymatic Sensor' : 'Cytology Sensor'}
+                                    </div>
+                                    <strong className="device-name-text">{d.custom_name || d.product}</strong>
+                                    <div className="port-badge"><code>{d.port}</code></div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                    <div className="console-footer">
-                        <Button 
-                            label="Clear Console"
-                            icon="pi pi-trash"
-                            severity="danger"
-                            text
-                            onClick={() => setConsoleLines([])}
-                        />
-                    </div>
-                </div>
 
-                {/* 2. Live Chart */}
-                <div className="panel chart-panel">
-                    <div className="panel-header">
-                        <FaChartLine size={20} />
-                        <h2>Live Voltage Trend ({sampleType === 'normal' ? 'Normal' : 'Cancer'} Cycle)</h2>
+                                <Button
+                                // 1. Change icon based on state
+                                icon={isPathFilled ? "pi pi-check-circle" : (isReading ? "pi pi-spin pi-spinner" : "pi pi-play")}
+                                
+                                // 2. Only TRULY disable if a reading is currently in progress
+                                disabled={isReading} 
+                                
+                                // 3. Use a class to handle the "Disabled Look" via CSS
+                                className={`device-action-btn ${isPathFilled ? 'is-soft-disabled' : ''}`}
+                                
+                                severity={isPathFilled ? "secondary" : (sampleType === 'cancer' ? "danger" : "success")}
+                                
+                                onClick={() => {
+                                    if (isPathFilled) {
+                                        // Trigger the explanation toast
+                                        toast.error(
+                                            <div>
+                                                <strong>Step Completed</strong>
+                                                <p style={{ fontSize: '12px', margin: '4px 0 0' }}>
+                                                    {sampleType === 'normal' ? 'Normal Reference' : 'Cancer Test'} data is already stored. 
+                                                    Refresh the tile to re-run or switch pathways.
+                                                </p>
+                                            </div>,
+                                            { position: 'top-right' }
+                                        );
+                                    } else {
+                                        // Run the actual test
+                                        startTestCycle(d.port);
+                                    }
+                                }}
+                            />
+                            </div>
+                        );
+                    })}
+                </div>
+            </aside>
+
+            {/* MAIN CONTENT AREA */}
+            <section className="content-area">
+                <h2>Choose a Testing option</h2>
+                <footer className="action-footer">
+                    <div className="mode-toggle-group">
+                        
+                        <div className="test-selector cta-style">
+                            <label className={`cta-option normal ${sampleType === 'normal' ? 'active' : ''}`}>
+                                <input type="radio" onChange={() => setSampleType('normal')} checked={sampleType === 'normal'} />
+                                <i className="pi pi-shield"></i>
+                                <span>Normal Cell Mode</span>
+                            </label>
+                            
+                            <label className={`cta-option cancer ${sampleType === 'cancer' ? 'active' : ''}`}>
+                                <input type="radio" onChange={() => setSampleType('cancer')} checked={sampleType === 'cancer'} />
+                                <i className="pi pi-search-plus"></i>
+                                <span>Cancer Cell Mode</span>
+                            </label>
+                        </div>
                     </div>
                     
-                    <div className="chart-wrapper">
-                        <ResponsiveContainer width="100%" height={360}>
-                            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                                <XAxis dataKey="time" stroke="#ccc" />
-                                <YAxis 
-                                    domain={['auto', 'auto']} 
-                                    label={{ value: 'Voltage (V)', angle: -90, position: 'insideLeft', fill: '#ccc' }} 
-                                    stroke="#ccc" 
-                                />
-                                <Tooltip 
-                                    contentStyle={{ backgroundColor: '#222', border: '1px solid #444' }}
-                                    formatter={(value: number) => [`${value.toFixed(4)} V`, 'Voltage']}
-                                    labelFormatter={(label) => `Time: ${label}`}
-                                />
-                                <Legend />
-                                <Line 
-                                    type="monotone" 
-                                    dataKey="value" 
-                                    stroke={sampleType === 'normal' ? "#34d399" : "#f87171"} 
-                                    strokeWidth={3} 
-                                    name="Output Voltage"
-                                    dot={false}
-                                    isAnimationActive={false} 
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                    <p className="chart-legend-note">
-                        Displaying the last 30 data points from the **{sampleType}** cell test cycle.
-                    </p>
-                </div>
-            </div>
+                    <Button 
+                        label={isSaving ? "Processing..." : "Finalize & Save Report"}
+                        style={{ verticalAlign: "middle" }}
+                        icon="pi pi-check-circle" 
+                        severity="success"
+                        className="save-btn p-button-lg w-fit"
+                        onClick={handleSave}
+                        disabled={normalCellReadings.length === 0 && cancerCellReadings.length === 0}
+                    />
+                </footer>
 
-            {/* ----- DEVICE LIST (Bottom) ----- */}
-            <div className="devices-section">
-                <div className="devices-header">
-                    <h2>Connected Testing Devices ({connectedDevices.length})</h2>
-                    <p className="device-instruction">Select the appropriate sample type above, then click **Acquire Data** on a connected device to begin the test cycle.</p>
-                </div>
-                
-                {connectedDevices.length === 0 ? (
-                    <div className="no-devices-message">
-                        <FaTimesCircle size={30} className="text-red-500 mb-2" />
-                        <p>No devices detected. Please plug one in and ensure the application is running.</p>
-                    </div>
-                ) : (
-                    <div className="device-grid">
-                        {connectedDevices.map((d: ArduinoDevice) => ( 
-                        <div
-                            key={d.port}
-                            className={`device-card connected ${deviceReading(d) ? 'reading' : ''}`} // Status is always 'connected' here
-                        >
-                            <div className="device-header">
-                                <h3 className="device-name">{d.custom_name || d.product || "Unknown Device"}</h3>
-                                {/* Status badge will always be 'connected' here */}
-                                <span className={`status-badge status-connected`}>{d.status}</span> 
-                            </div>
-                            <p className="device-info">
-                                **Port:** {d.port}
-                            </p>
-                            
-                            <Button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    startTestCycle(d.port);
-                                }}
-                               
-                                disabled={d.status !== "connected" || readingPorts.has(d.port)} 
-                                label={
-                                    readingPorts.has(d.port) 
-                                        ? "Reading Data..." 
-                                        : `Acquire ${sampleType === 'normal' ? 'Normal' : 'Cancer'} Data`
+                <div className="results-container">
+                    <div className="results-grid">
+                        {/* Normal Stats */}
+                        <div className={`result-tile normal ${sampleType === 'normal' ? 'active-pathway' : ''}`}>
+                            <div className="tile-header">
+                                <label>Normal Reference</label>
+                                {normalCellReadings.length > 0 && 
+                                    <Button 
+                                        icon="pi pi-refresh" 
+                                        rounded 
+                                        className="p-button-text p-button-sm refresh-btn" 
+                                        style={{ marginTop: "0 !important" }} 
+                                        onClick={() => handleClearReadings("normal")} 
+                                        tooltip="Reset Normal Readings" 
+                                        tooltipOptions={{ 
+                                            position: 'bottom', 
+                                            mouseTrack: true, 
+                                            mouseTrackTop: 15,
+                                            showDelay: 300 
+                                        }}
+                                    
+                                    />
                                 }
-                                icon={readingPorts.has(d.port) ? "pi pi-spin pi-spinner" : "pi pi-play"}
-                                severity={sampleType === 'normal' ? "success" : "danger"}
-                                className="p-button-sm w-full mt-3"
-                            />
+                            </div>
+                            <div className="tile-body">
+                                <div className="main-val">{avgNormalVoltage.toFixed(4)}<span className="unit">V</span></div>
+                            </div>
+                            <div className="sub-val">{normalCellReadings.length} Samples Recorded</div>
                         </div>
-                    ))}
+
+                        {/* Cancer Stats */}
+                        <div className={`result-tile cancer ${sampleType === 'cancer' ? 'active-pathway' : ''}`}>
+                            <div className="tile-header">
+                                <label>Cancer Test</label>
+                                {cancerCellReadings.length > 0 && 
+                                    <Button 
+                                        rounded 
+                                        icon="pi pi-refresh" 
+                                        className="p-button-rounded p-button-text p-button-sm refresh-btn" 
+                                        onClick={() => handleClearReadings("cancer")} 
+                                        tooltip="Reset Cancer Readings" 
+                                        tooltipOptions={{ 
+                                            position: 'bottom', 
+                                            mouseTrack: true, 
+                                            mouseTrackTop: 15,
+                                            showDelay: 300 
+                                        }}
+                                    />
+                                }
+                            </div>
+                            <div className="tile-body">
+                                <div className="main-val">{avgCancerVoltage.toFixed(4)}<span className="unit">V</span></div>
+                                <div className="comparison-indicator">
+                                    <i className="pi pi-check-circle" style={{color: 'var(--green-500)'}}></i> Stable
+                                </div>
+                            </div>
+                            <div className="sub-val">{cancerCellReadings.length} Samples Recorded</div>
+                        </div>
+
+                        {/* Glucose Stats */}
+                        <div className="result-tile glucose">
+                            <div className="tile-header">
+                                <label>Glucose Level</label>
+                            </div>
+                            
+                            <div className="tile-body">
+                                <div className="main-val">{glucoseReading ?? '--'}<span className="unit">mg/dL</span></div>
+                            </div>
+
+                            <div className="sub-val">Bio-Enzymatic Sensor</div>
+                        </div>
                     </div>
-                )}
-            </div>
-        </div>
-    );
+                </div>
+
+                {/* ACTION BAR: Fixed at bottom of content area */}
+                
+            </section>
+        </main>
+    </div>
+);
+
 }

@@ -1,290 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus Medical Loading</title>
+    <title>Nexus Medical</title>
     
     <style>
-        /* ---------------------------------------------------- */
-        /* 1. Global Setup and Variables */
-        /* ---------------------------------------------------- */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 
         :root {
-            --dark-bg: #0A192F;         /* Deep Slate Blue (Tailwind: gray-900 equivalent) */
-            --accent-color: #0891b2;    /* Cyan 600 */
-            --light-text: #e2e8f0;      /* Slate 200 */
-            --dark-text-subtle: #94a3b8; /* Slate 400 */
-            --sky-200: #bae6fd;         /* Sky 200 */
-            --sky-300: #7dd3fc;         /* Sky 300 */
-            --cyan-400: #22d3ee;        /* Cyan 400 */
+            --void-black: #050505;
+            --deep-purple: #1a0b2e;
+            --electric-violet: #7b2cbf;
+            --neon-pink: #ff006e;
+            --cyber-cyan: #00f5ff;
+            --soft-white: #f0f4f8;
+            --ghost-white: rgba(240, 244, 248, 0.1);
         }
 
-        /* Equivalent of: body, html { overflow: hidden; margin: 0; padding: 0; width: 100%; height: 100%; font-family: 'Inter', sans-serif; background-color: var(--dark-bg); } */
-        body, html {
-            overflow: hidden;
+        * {
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
-            font-family: 'Inter', sans-serif;
-            background-color: var(--dark-bg); 
+            box-sizing: border-box;
         }
 
-        /* Equivalent of: flex items-center justify-center min-h-screen text-[var(--light-text)] */
         body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: radial-gradient(ellipse at top, var(--deep-purple), var(--void-black));
+            color: var(--soft-white);
+            overflow: hidden;
+            height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
-            color: var(--light-text);
+            position: relative;
         }
 
-        /* ---------------------------------------------------- */
-        /* 2. Custom Animations */
-        /* ---------------------------------------------------- */
-
-        @keyframes spin-load {
-            0% { transform: rotate(0deg); opacity: 0.5; }
-            100% { transform: rotate(360deg); opacity: 1; }
-        }
-        
-        @keyframes fade-in {
-            0% { opacity: 0.5; transform: translateY(5px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
-
-        .loader-spin {
-            animation: spin-load 1.5s linear infinite;
-        }
-
-        .status-text {
-            animation: fade-in 0.5s ease-out;
-        }
-
-        /* ---------------------------------------------------- */
-        /* 3. Layout and Utility Classes (Tailwind Replacement) */
-        /* ---------------------------------------------------- */
-
-        /* Positioning and Container styles */
-        #particle-canvas {
+        /* Mesh gradient background */
+        .bg-mesh {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 0; 
+            z-index: 0;
+            opacity: 0.4;
         }
 
-        .content-container {
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .orb-1 {
+            width: 500px;
+            height: 500px;
+            background: var(--electric-violet);
+            top: -10%;
+            left: -10%;
+            animation-delay: 0s;
+        }
+
+        .orb-2 {
+            width: 400px;
+            height: 400px;
+            background: var(--neon-pink);
+            bottom: -15%;
+            right: -10%;
+            animation-delay: 3s;
+        }
+
+        .orb-3 {
+            width: 350px;
+            height: 350px;
+            background: var(--cyber-cyan);
+            top: 40%;
+            right: -5%;
+            animation-delay: 6s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 30px) scale(0.9); }
+        }
+
+        /* Grid overlay */
+        .grid-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(var(--ghost-white) 1px, transparent 1px),
+                linear-gradient(90deg, var(--ghost-white) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: 1;
+            opacity: 0.3;
+        }
+
+        .container {
             position: relative;
             z-index: 10;
-            text-align: center; /* text-center */
-            padding: 2rem; /* p-8 */
-        }
-        
-        /* Logo Container: mb-8 relative w-24 h-24 mx-auto flex items-center justify-center */
-        .logo-container {
-            margin-bottom: 2rem; /* mb-8 */
-            position: relative; /* relative */
-            width: 6rem; /* w-24 */
-            height: 6rem; /* h-24 */
-            margin-left: auto; /* mx-auto */
-            margin-right: auto; /* mx-auto */
-            display: flex; /* flex */
-            align-items: center; /* items-center */
-            justify-content: center; /* justify-center */
+            text-align: center;
+            padding: 1rem 2rem;
+            max-width: 600px;
         }
 
-        /* Inner Icon: w-10 h-10 text-[var(--accent-color)] z-10 */
-        .inner-icon {
-            width: 2.5rem; /* w-10 */
-            height: 2.5rem; /* h-10 */
-            color: var(--accent-color); 
-            z-index: 10; /* z-10 */
+        /* Hexagonal logo */
+        .logo-hex {
+            width: 140px;
+            height: 140px;
+            margin: 0 auto 1.5rem;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        /* H1 Title: text-5xl font-extrabold mb-2 tracking-wide ... gradient */
-        .title-h1 {
-            font-size: 3rem; /* text-5xl */
-            font-weight: 800; /* font-extrabold */
-            margin-bottom: 0.5rem; /* mb-2 */
-            letter-spacing: 0.05em; /* tracking-wide */
-            /* Gradient must be handled with clip-text and background */
-            background: linear-gradient(to right, var(--cyan-400), var(--sky-300));
+        .hexagon {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            background: linear-gradient(135deg, var(--electric-violet), var(--neon-pink));
+            animation: rotate-hex 8s linear infinite;
+        }
+
+        .hexagon-inner {
+            position: absolute;
+            width: 90%;
+            height: 90%;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            background: var(--void-black);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes rotate-hex {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .logo-icon {
+            width: 50px;
+            height: 50px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .pulse-dot {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: var(--cyber-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 20px var(--cyber-cyan);
+        }
+
+        .pulse-dot:nth-child(1) {
+            top: 20%;
+            left: 20%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .pulse-dot:nth-child(2) {
+            top: 20%;
+            right: 20%;
+            animation: pulse 2s ease-in-out 0.3s infinite;
+        }
+
+        .pulse-dot:nth-child(3) {
+            bottom: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: pulse 2s ease-in-out 0.6s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { 
+                transform: scale(1); 
+                opacity: 1;
+            }
+            50% { 
+                transform: scale(1.5); 
+                opacity: 0.5;
+            }
+        }
+
+        .connecting-line {
+            position: absolute;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--cyber-cyan), transparent);
+            opacity: 0.6;
+        }
+
+        .line-1 {
+            width: 40px;
+            top: 22%;
+            left: 22%;
+            transform: rotate(45deg);
+            animation: glow-line 3s ease-in-out infinite;
+        }
+
+        .line-2 {
+            width: 40px;
+            top: 22%;
+            right: 22%;
+            transform: rotate(-45deg);
+            animation: glow-line 3s ease-in-out 0.5s infinite;
+        }
+
+        @keyframes glow-line {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, var(--soft-white), var(--cyber-cyan), var(--neon-pink));
             -webkit-background-clip: text;
             background-clip: text;
-            color: transparent; /* text-transparent */
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
         }
 
-        /* Subtitle: text-sky-200 text-lg font-medium mb-10 */
-        .subtitle-p {
-            color: var(--sky-200);
-            font-size: 1.125rem; /* text-lg */
-            font-weight: 500; /* font-medium */
-            margin-bottom: 2.5rem; /* mb-10 */
+        .tagline {
+            font-size: 0.95rem;
+            color: var(--cyber-cyan);
+            font-weight: 400;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+            opacity: 0.8;
         }
 
-        /* Status Box Container: w-full max-w-xs mx-auto p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 shadow-lg */
-        .status-box {
-            width: 100%; /* w-full */
-            max-width: 20rem; /* max-w-xs (320px) */
-            margin-left: auto; /* mx-auto */
-            margin-right: auto; /* mx-auto */
-            padding: 1rem; /* p-4 */
-            background-color: rgba(31, 41, 55, 0.5); /* bg-gray-800/50 */
-            border-radius: 0.5rem; /* rounded-lg */
-            border: 1px solid rgba(55, 65, 81, 0.5); /* border border-gray-700/50 */
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
-        }
-        
-        /* Status Text: text-lg font-semibold text-sky-200 */
-        .status-text-p {
-            font-size: 1.125rem; /* text-lg */
-            font-weight: 600; /* font-semibold */
-            color: var(--sky-200); 
+        /* Futuristic status panel */
+        .status-panel {
+            background: rgba(26, 11, 46, 0.4);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 245, 255, 0.3);
+            border-radius: 20px;
+            padding: 1.5rem;
+            max-width: 450px;
+            margin: 0 auto 1.5rem;
+            box-shadow: 
+                0 0 40px rgba(123, 44, 191, 0.2),
+                inset 0 0 20px rgba(0, 245, 255, 0.05);
+            position: relative;
+            overflow: hidden;
         }
 
-        /* Footer Text: text-sky-300/70 text-xs mt-12 font-light */
-        .footer-text {
-            color: rgba(125, 211, 252, 0.7); /* text-sky-300/70 */
-            font-size: 0.75rem; /* text-xs */
-            margin-top: 3rem; /* mt-12 */
-            font-weight: 300; /* font-light */
+        .status-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 245, 255, 0.1), transparent);
+            animation: scan 3s ease-in-out infinite;
+        }
+
+        @keyframes scan {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .status-label {
+            font-size: 0.75rem;
+            color: var(--cyber-cyan);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+        }
+
+        .status-time {
+            font-size: 0.75rem;
+            color: rgba(240, 244, 248, 0.5);
+            font-family: 'Courier New', monospace;
+        }
+
+        .status-message {
+            font-size: 1.1rem;
+            color: var(--soft-white);
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+            min-height: 28px;
+            animation: text-glow 0.5s ease;
+        }
+
+        @keyframes text-glow {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Segmented progress bar */
+        .progress-segments {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .segment {
+            flex: 1;
+            height: 4px;
+            background: rgba(240, 244, 248, 0.1);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .segment.active {
+            background: linear-gradient(90deg, var(--electric-violet), var(--neon-pink), var(--cyber-cyan));
+            box-shadow: 0 0 10px var(--cyber-cyan);
+            animation: segment-pulse 1s ease-in-out;
+        }
+
+        @keyframes segment-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .metrics {
+            display: flex;
+            justify-content: space-around;
+            font-size: 0.7rem;
+            color: rgba(240, 244, 248, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .metric span {
+            color: var(--cyber-cyan);
+            font-weight: 600;
+            margin-left: 0.3rem;
+        }
+
+        .footer-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            font-size: 0.7rem;
+            color: rgba(240, 244, 248, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            background: var(--cyber-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--cyber-cyan);
+            animation: status-blink 2s ease-in-out infinite;
+        }
+
+        @keyframes status-blink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
         }
     </style>
 </head>
-<body class=""> 
+<body>
+    <div class="bg-mesh">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+    
+    <div class="grid-overlay"></div>
 
-    <canvas id="particle-canvas"></canvas>
+    <div class="container">
+        <div class="logo-hex">
+            <div class="hexagon"></div>
+            <div class="hexagon-inner">
+                <div class="logo-icon">
+                    <div class="pulse-dot"></div>
+                    <div class="pulse-dot"></div>
+                    <div class="pulse-dot"></div>
+                    <div class="connecting-line line-1"></div>
+                    <div class="connecting-line line-2"></div>
+                </div>
+            </div>
+        </div>
 
-    <div class="content-container">
+        <h1>NEXUS</h1>
+        <p class="tagline">Medical Systems</p>
         
-        <div class="logo-container">
+        <div class="status-panel">
+            <div class="status-header">
+                <span class="status-label">Status</span>
+                <span class="status-time" id="timestamp">00:00:00</span>
+            </div>
             
-            <svg class="w-full h-full absolute loader-spin" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="50" cy="50" r="45" stroke="rgba(56, 189, 248, 0.2)" stroke-width="6"/> 
-                <path d="M50 5 C75 5 95 25 95 50" stroke="var(--accent-color)" stroke-width="6" stroke-linecap="round"/>
-            </svg>
-
-            <svg class="inner-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
+            <div class="status-message" id="status">Initializing quantum core...</div>
+            
+            <div class="progress-segments" id="segments">
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+            </div>
+            
+            <div class="metrics">
+                <div class="metric">Threads<span id="threads">0</span></div>
+                <div class="metric">Modules<span id="modules">0</span></div>
+                <div class="metric">Security<span>AES-256</span></div>
+            </div>
         </div>
-
-        <h1 class="title-h1">NEXUS MEDICAL</h1>
-        <p class="subtitle-p">System Initialization</p>
         
-        <div class="status-box">
-            <p id="status" class="status-text-p status-text">Preparing services...</p>
+        <div class="footer-info">
+            <div class="status-indicator"></div>
+            <span>Secure Neural Interface Protocol</span>
         </div>
-        
-        <p class="footer-text">Secure Patient Monitoring Interface</p>
     </div>
 
     <script>
-        // --- Status Logic ---
         const statuses = [
-            "Checking system integrity...",
-            "Loading peripheral drivers...",
-            "Establishing database connection...",
-            "Scanning for serial devices...",
-            "Authenticating user session...",
-            "Initialization complete. Launching dashboard."
+            "Initializing quantum core...",
+            "Establishing neural pathways...",
+            "Synchronizing biometric sensors...",
+            "Loading patient databases...",
+            "Calibrating diagnostic algorithms...",
+            "System online • Ready for operation"
         ];
-        let i = 0;
+        
+        let currentIndex = 0;
         const statusElement = document.getElementById('status');
+        const segments = document.querySelectorAll('.segment');
+        const threadsEl = document.getElementById('threads');
+        const modulesEl = document.getElementById('modules');
         
-        const updateStatus = () => {
-            if (i < statuses.length) {
-                statusElement.textContent = statuses[i];
-                // Restart animation class to re-trigger fade-in on new text
-                statusElement.classList.remove('status-text');
-                void statusElement.offsetWidth; // Trigger reflow
-                statusElement.classList.add('status-text'); 
-                i++;
-            } else {
-                // Ensure the final state is 'Initialization complete.' before stopping
-                statusElement.textContent = statuses[statuses.length - 1]; 
-                clearInterval(interval);
-            }
-        };
-
-        const interval = setInterval(updateStatus, 1500); 
-        updateStatus(); 
-
-        // --- Background Particle Logic ---
-        const canvas = document.getElementById('particle-canvas');
-        const ctx = canvas.getContext('2d');
-        let width, height;
-        let particles = [];
+        function updateTimestamp() {
+            const now = new Date();
+            const time = now.toTimeString().split(' ')[0];
+            document.getElementById('timestamp').textContent = time;
+        }
         
-        // RGB for Cyan 400 (34, 211, 238)
-        const PARTICLE_R = 34;
-        const PARTICLE_G = 211;
-        const PARTICLE_B = 238;
-
-        // Particle class definition
-        class Particle {
-            constructor() {
-                this.reset();
-                this.x = Math.random() * width; 
-            }
-            
-            reset() {
-                this.y = height + Math.random() * height; 
-                this.size = Math.random() * 2 + 0.5; 
-                this.speed = Math.random() * 0.5 + 0.3; 
-                this.opacity = Math.random() * 0.3 + 0.1; 
-                this.x = Math.random() * width; 
-            }
-
-            update() {
-                this.y -= this.speed;
-                if (this.y < -this.size) {
-                    this.reset();
-                    this.y = height; 
+        function updateStatus() {
+            if (currentIndex < statuses.length) {
+                statusElement.textContent = statuses[currentIndex];
+                statusElement.style.animation = 'none';
+                setTimeout(() => {
+                    statusElement.style.animation = 'text-glow 0.5s ease';
+                }, 10);
+                
+                if (segments[currentIndex]) {
+                    segments[currentIndex].classList.add('active');
                 }
-            }
-
-            draw() {
-                ctx.fillStyle = `rgba(${PARTICLE_R}, ${PARTICLE_G}, ${PARTICLE_B}, ${this.opacity})`; 
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        // Initialize and setup functions
-        function setupCanvas() {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
-            particles = [];
-            for (let j = 0; j < 60; j++) { 
-                particles.push(new Particle());
+                
+                threadsEl.textContent = Math.min((currentIndex + 1) * 4, 24);
+                modulesEl.textContent = Math.min((currentIndex + 1) * 8, 48);
+                
+                currentIndex++;
+            } else {
+                clearInterval(statusInterval);
             }
         }
-
-        function animateParticles() {
-            // Clear the canvas with a transparent layer that matches the dark background
-            ctx.fillStyle = 'rgba(10, 25, 45, 0.15)'; 
-            ctx.fillRect(0, 0, width, height); 
-
-            particles.forEach(p => {
-                p.update();
-                p.draw();
-            });
-
-            requestAnimationFrame(animateParticles);
-        }
-
-        // Handle resizing
-        window.addEventListener('resize', setupCanvas);
-
-        // Start the background animation after initial setup
-        window.onload = function() {
-            setupCanvas();
-            animateParticles();
-        };
-
+        
+        updateTimestamp();
+        setInterval(updateTimestamp, 1000);
+        
+        const statusInterval = setInterval(updateStatus, 1800);
+        updateStatus();
     </script>
 </body>
+</html>

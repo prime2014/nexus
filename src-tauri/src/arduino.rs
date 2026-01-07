@@ -1,18 +1,18 @@
-use tauri::{AppHandle, Emitter};
-use serialport::{available_ports, SerialPortType};
 use crate::types::UsbDevice;
-use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use log::{debug, error, info, warn};
 use once_cell::sync::Lazy;
 use serde_json::json;
+use serialport::{available_ports, SerialPortType};
+use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader as StdBufReader};
-use log::{info, warn, error, debug};
-use tauri::async_runtime::JoinHandle;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
+use tauri::async_runtime::JoinHandle;
+use tauri::{AppHandle, Emitter};
 
-use serialport::SerialPort;
 use crate::errordefs::AppError;
+use serialport::SerialPort;
 
 // === GLOBAL STATE ===
 static POLLING_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -22,12 +22,17 @@ static ACTIVE_READERS: Lazy<Mutex<HashMap<String, JoinHandle<()>>>> =
 
 // User clicked "Acquire" → we remember they want a measurement
 // Removed on: success OR any error/timeout/disconnect → prevents infinite retry
-static DESIRED_READING_PORTS: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+static DESIRED_READING_PORTS: Lazy<Mutex<HashSet<String>>> =
+    Lazy::new(|| Mutex::new(HashSet::new()));
 
 // === ARDUINO DETECTION ===
 fn is_arduino_board(device: &UsbDevice) -> bool {
-    if device.vid == 0x2341 || device.vid == 9025 { return true; }
-    if matches!(device.vid, 0x1A86 | 0x10C4 | 0x0403 | 0x239A) { return true; }
+    if device.vid == 0x2341 || device.vid == 9025 {
+        return true;
+    }
+    if matches!(device.vid, 0x1A86 | 0x10C4 | 0x0403 | 0x239A) {
+        return true;
+    }
     let p = device.product.as_deref().unwrap_or("").to_lowercase();
     let s = device.serial_number.as_deref().unwrap_or("").to_lowercase();
     p.contains("arduino") || s.contains("arduino")
@@ -42,7 +47,10 @@ fn get_board_name(device: &UsbDevice) -> String {
             _ => "Arduino Board".to_string(),
         };
     }
-    device.product.clone().unwrap_or("Arduino-Compatible".to_string())
+    device
+        .product
+        .clone()
+        .unwrap_or("Arduino-Compatible".to_string())
 }
 
 // === CORE HELPERS ===
@@ -61,7 +69,7 @@ fn get_current_devices_blocking() -> Result<Vec<UsbDevice>, AppError> {
                 status: "connected".to_string(),
                 board_name: "".to_string(),
                 device_unit: None,
-                custom_name: None
+                custom_name: None,
             };
 
             if is_arduino_board(&device) {
@@ -110,12 +118,14 @@ fn scan_arduino_and_emit_core(
     let mut desired_guard = DESIRED_READING_PORTS.lock()?;
     let mut readers = ACTIVE_READERS.lock()?;
 
-    let added: Vec<UsbDevice> = current.iter()
+    let added: Vec<UsbDevice> = current
+        .iter()
         .filter(|d| !prev_guard.iter().any(|p| p.port == d.port))
         .cloned()
         .collect();
 
-    let removed: Vec<UsbDevice> = prev_guard.iter()
+    let removed: Vec<UsbDevice> = prev_guard
+        .iter()
         .filter(|p| !current.iter().any(|c| c.port == p.port))
         .cloned()
         .collect();
@@ -123,33 +133,45 @@ fn scan_arduino_and_emit_core(
     let has_changed = !added.is_empty() || !removed.is_empty();
 
     if has_changed {
-        info!("DEVICE CHANGE: +{} added, -{} removed", added.len(), removed.len());
+        info!(
+            "DEVICE CHANGE: +{} added, -{} removed",
+            added.len(),
+            removed.len()
+        );
 
         for device in &removed {
             desired_guard.remove(&device.port);
             if let Some(handle) = readers.remove(&device.port) {
                 handle.abort();
-                let _ = app.emit("arduino-reading-stopped", json!({
-                    "port": &device.port,
-                    "reason": "Device removed"
-                }));
+                let _ = app.emit(
+                    "arduino-reading-stopped",
+                    json!({
+                        "port": &device.port,
+                        "reason": "Device removed"
+                    }),
+                );
             }
         }
 
-        let _ = app.emit("arduino-changed", json!({ "added": added, "removed": removed }));
+        let _ = app.emit(
+            "arduino-changed",
+            json!({ "added": added, "removed": removed }),
+        );
     }
 
     *prev_guard = current.clone();
     Ok((has_changed, current))
 }
 
-
 pub async fn manual_read_loop(
     app: AppHandle,
     port_name: String,
     baud_rate: u32,
 ) -> Result<(), AppError> {
-    info!("Opening and resetting Arduino on {} @ {} baud", port_name, baud_rate);
+    info!(
+        "Opening and resetting Arduino on {} @ {} baud",
+        port_name, baud_rate
+    );
 
     let mut serial_port = match serialport::new(&port_name, baud_rate)
         .timeout(Duration::from_millis(1000))
@@ -159,23 +181,30 @@ pub async fn manual_read_loop(
         Err(e) => {
             let msg = e.to_string();
             error!("Failed to open {}: {}", port_name, msg);
-            let _ = app.emit("arduino-disconnected", json!({
-                "port": &port_name,
-                "error": msg
-            }));
-            let _ = DESIRED_READING_PORTS.lock().map(|mut s| s.remove(&port_name));
+            let _ = app.emit(
+                "arduino-disconnected",
+                json!({
+                    "port": &port_name,
+                    "error": msg
+                }),
+            );
+            let _ = DESIRED_READING_PORTS
+                .lock()
+                .map(|mut s| s.remove(&port_name));
             let _ = app.emit("arduino-reading-stopped", json!({ "port": &port_name }));
             return Err(e.into());
         }
     };
 
-    
     // DTR reset
     let _ = serial_port.write_data_terminal_ready(true);
     std::thread::sleep(Duration::from_millis(250));
     let _ = serial_port.write_data_terminal_ready(false);
 
-    info!("Arduino reset complete on {}. Starting read loop...", port_name);
+    info!(
+        "Arduino reset complete on {}. Starting read loop...",
+        port_name
+    );
 
     let mut reader = StdBufReader::new(serial_port);
     let mut line = String::new();
@@ -215,19 +244,29 @@ pub async fn manual_read_loop(
             Ok(0) => fail_and_forget!("Connection lost unexpectedly", "arduino-error"),
             Ok(_) => {
                 let data = line.trim().to_string();
-                if data.is_empty() { continue; }
+                if data.is_empty() {
+                    continue;
+                }
 
                 last_data_time = Instant::now();
                 debug!("DATA: {}", data);
 
-                let _ = app.emit("arduino-data", json!({
-                    "port": &port_name,
-                    "data": data
-                }));
+                let _ = app.emit(
+                    "arduino-data",
+                    json!({
+                        "port": &port_name,
+                        "data": data
+                    }),
+                );
 
                 if data.contains("cycles completed") {
-                    info!("Measurement successfully finished on {} (3 cycles)", port_name);
-                    let _ = DESIRED_READING_PORTS.lock().map(|mut s| s.remove(&port_name));
+                    info!(
+                        "Measurement successfully finished on {} (3 cycles)",
+                        port_name
+                    );
+                    let _ = DESIRED_READING_PORTS
+                        .lock()
+                        .map(|mut s| s.remove(&port_name));
                     let _ = app.emit("arduino-cycle-complete", json!({ "port": &port_name }));
                     let _ = app.emit("arduino-reading-stopped", json!({ "port": &port_name }));
                     break;
@@ -252,7 +291,10 @@ pub async fn manual_read_loop(
 
 #[tauri::command]
 pub async fn start_arduino_watcher(app: AppHandle) -> Result<(), AppError> {
-    if POLLING_ACTIVE.compare_exchange(false, true, Ordering::SeqCst, Ordering::Relaxed).is_err() {
+    if POLLING_ACTIVE
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::Relaxed)
+        .is_err()
+    {
         warn!("Arduino watcher already running");
         return Err(AppError::Internal("Watcher already running".into()));
     }
@@ -267,9 +309,11 @@ pub async fn start_arduino_watcher(app: AppHandle) -> Result<(), AppError> {
 
         // Main polling loop
         while POLLING_ACTIVE.load(Ordering::Relaxed) {
-            if let Ok(Ok(current)) = tokio::task::spawn_blocking(get_current_devices_blocking).await {
-                let (_changed, final_devices) = scan_arduino_and_emit_core(&app_clone, current.clone())
-                    .unwrap_or((false, current.clone()));
+            if let Ok(Ok(current)) = tokio::task::spawn_blocking(get_current_devices_blocking).await
+            {
+                let (_changed, final_devices) =
+                    scan_arduino_and_emit_core(&app_clone, current.clone())
+                        .unwrap_or((false, current.clone()));
 
                 let _ = restart_stale_readers(&app_clone, &final_devices);
 
@@ -317,7 +361,10 @@ pub async fn start_reading_from_port(
 
     let mut readers = ACTIVE_READERS.lock()?;
     if readers.contains_key(&port_name) {
-        return Err(AppError::Resource(format!("Already reading from {}", port_name)));
+        return Err(AppError::Resource(format!(
+            "Already reading from {}",
+            port_name
+        )));
     }
 
     let app_clone = app.clone();

@@ -2,14 +2,12 @@
 pub fn get_current_user() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        std::env::var("USERNAME")
-            .map_err(|_| "Could not read USERNAME on Windows".to_string())
+        std::env::var("USERNAME").map_err(|_| "Could not read USERNAME on Windows".to_string())
     }
 
     #[cfg(target_os = "macos")]
     {
-        std::env::var("USER")
-            .map_err(|_| "Could not read USER on macOS".to_string())
+        std::env::var("USER").map_err(|_| "Could not read USER on macOS".to_string())
     }
 
     #[cfg(target_os = "linux")]

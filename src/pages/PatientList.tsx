@@ -13,12 +13,15 @@ import { useNavigate } from "react-router-dom";
 import { FaVial } from "react-icons/fa";
 import { useSelector } from "react-redux"; 
 import { RootState } from "../store";
+import { ask } from "@tauri-apps/plugin-dialog";
 
 // NOTE: PatientRecord should mirror the Rust PatientRecord struct
 interface PatientRecord {
     id: number;
     admission_no: string;
     national_id: string | null;
+    location: string | null;
+    test_type: string,
     firstname: string;
     lastname: string;
     classification: string;
@@ -33,6 +36,8 @@ interface PatientForm {
     national_id: string | null;
     firstname: string;
     lastname: string;
+    location: string | null;
+    test_type: string,
     contact_person: string | null;
     telephone_1: string | null;
     telephone_2: string | null;
@@ -42,6 +47,7 @@ interface PatientForm {
 
 const initialFormState: PatientForm = {
     admission_no: "", national_id: null, firstname: "", lastname: "", 
+    location: "", test_type: "",
     contact_person: null, telephone_1: null, telephone_2: null, 
     classification: "outpatient", doctor_in_charge: null
 }
@@ -121,6 +127,7 @@ export default function PatientList() {
             telephone_2: patient.telephone_2, 
             classification: patient.classification as "inpatient" | "outpatient",
             doctor_in_charge: patient.doctor, 
+            location: patient.location, test_type: patient.test_type
         });
         setIsNewPatient(false);
         setEditModalVisible(true);
@@ -155,7 +162,14 @@ export default function PatientList() {
     };
     
     const handleDelete = async (admissionNo: string) => {
-        if (!window.confirm(`Are you sure you want to delete patient ${admissionNo}? This action cannot be undone.`)) {
+        console.log("Our vested patient")
+        console.log(patients)
+        const confirmed = await ask(
+            `Are you sure you want to delete patient ${patients[0].firstname} ${patients[0].lastname}? This action cannot be undone.`, 
+            { title: 'Confirm Deletion', kind: 'warning' }
+        );
+
+        if (!confirmed) {
             return;
         }
 
@@ -220,7 +234,10 @@ export default function PatientList() {
                     rounded 
                     text 
                     className="action-button-circle"
-                    onClick={() => handleDelete(rowData.admission_no)} 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(rowData.admission_no)
+                    }} 
                     aria-label="Delete"
                     tooltip={`Delete Patient ${rowData.admission_no}`}
                     tooltipOptions={{ position: 'top' }}
@@ -283,6 +300,8 @@ export default function PatientList() {
                 <Column field="admission_no" header="Admission No." sortable style={{ width: '15%' }} />
                 <Column field="lastname" header="Last Name" sortable style={{ width: '25%' }} />
                 <Column field="firstname" header="First Name" sortable style={{ width: '25%' }} />
+                <Column field="test_type" header="Test Type" sortable style={{ width: '25%' }} />
+                <Column field="location" header="Location" sortable style={{ width: '25%' }} />
                 <Column field="classification" header="Type" sortable style={{ width: '15%' }} />
                 <Column 
                     body={actionBodyTemplate} 
@@ -309,13 +328,19 @@ export default function PatientList() {
                             icon="pi pi-check" 
                             onClick={handleSavePatient}
                             loading={isSaving}
-                            disabled={!currentPatient?.admission_no || !currentPatient?.firstname || !currentPatient?.lastname} // Basic validation
+                            disabled={!currentPatient?.admission_no || !currentPatient?.firstname || !currentPatient?.lastname || !currentPatient?.national_id} // Basic validation
                         />
                     </div>
                 )}
             >
+
                 {currentPatient && (
                     <div className="grid p-fluid form-content-grid">
+                        <div className="col-12 mb-2">
+                            <p className="text-sm text-gray-500 italic">
+                                Fields marked with an asterisk (<span className="text-red-500">*</span>) are required.
+                            </p>
+                        </div>
                         
                         {/* Admission No. (Editable only for creation) */}
                         <div className="field col-12 md:col-6">
@@ -331,11 +356,12 @@ export default function PatientList() {
                         
                         {/* National ID */}
                         <div className="field col-12 md:col-6">
-                            <label htmlFor="national_id">National ID</label>
+                            <label htmlFor="national_id">National ID *</label>
                             <InputText 
                                 id="national_id" 
                                 value={currentPatient.national_id ?? ''} 
                                 onChange={(e) => setCurrentPatient(p => p ? ({ ...p, national_id: e.target.value }) : null)} 
+                                required
                             />
                         </div>
 
@@ -358,6 +384,26 @@ export default function PatientList() {
                                 value={currentPatient.lastname} 
                                 onChange={(e) => setCurrentPatient(p => p ? ({ ...p, lastname: e.target.value }) : null)} 
                                 required
+                            />
+                        </div>
+
+                        {/* Test type */}
+                        <div className="field col-12">
+                            <label htmlFor="test_type">Type of Test</label>
+                            <InputText 
+                                id="test_type" 
+                                value={currentPatient.test_type ?? ''} 
+                                onChange={(e) => setCurrentPatient(p => p ? ({ ...p, test_type: e.target.value }) : null)} 
+                            />
+                        </div>
+
+                        {/* Location */}
+                        <div className="field col-12">
+                            <label htmlFor="location">Location</label>
+                            <InputText 
+                                id="location" 
+                                value={currentPatient.location ?? ''} 
+                                onChange={(e) => setCurrentPatient(p => p ? ({ ...p, location: e.target.value }) : null)} 
                             />
                         </div>
 

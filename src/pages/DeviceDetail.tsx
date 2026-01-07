@@ -7,6 +7,7 @@ import { InputText } from 'primereact/inputtext';
 import { Button } from 'primereact/button';
 import toast, { Toaster } from "react-hot-toast";
 import { Card } from 'primereact/card';
+import { Dropdown } from "primereact/dropdown";
 import "./DeviceDetail.css";
 
 // Assuming you have this action in your arduinoSlice.ts
@@ -18,6 +19,11 @@ interface DeviceDetailParams {
     portName: string;
     [key: string]: string | undefined;
 }
+
+const deviceOptions = [
+    { label: 'Cancer Screening Unit', value: 'Cancer Screening Unit' },
+    { label: 'Glucose Monitoring Unit', value: 'Glucose Monitoring Unit' }
+];
 
 export default function DeviceDetail() {
     const { portName } = useParams<DeviceDetailParams>();
@@ -148,23 +154,28 @@ export default function DeviceDetail() {
             </Card>
             
             {/* --- 3. Customization Panel --- */}
-            <Card title="Name Customization" className="customization-card">
+            <Card title="Device Role Assignment" className="customization-card">
                 <p className="p-text-secondary p-mb-3">
-                    Set a friendly name for this device that will appear on the dashboard.
+                    Assign a specific medical role to this hardware unit. 
+                    This determines which tests are available for this device.
                 </p>
                 <div className="p-field p-fluid name-input-group">
-                    <label htmlFor="device-alias" className="p-sr-only">Custom Display Name</label>
-                    <InputText 
-                        id="device-alias" 
+                    <label htmlFor="device-role" className="p-sr-only">Select Device Role</label>
+                    
+                    <Dropdown 
+                        id="device-role"
                         value={alias} 
-                        onChange={(e) => setAlias(e.target.value)} 
-                        placeholder="Enter a friendly name (e.g., 'Lab Unit 1')"
+                        options={deviceOptions} 
+                        onChange={(e) => setAlias(e.value)} 
+                        placeholder="Select a medical role"
                         className="p-inputtext-lg"
+                        // If the device already has a custom_name, show it as selected
+                        // value={alias || device.custom_name} 
                     />
+
                     <Button 
-                        label={isUpdating ? "Saving..." : "Save Name"} 
-                        
-                        icon="pi pi-save"
+                        label={isUpdating ? "Saving..." : "Assign Role"} 
+                        icon="pi pi-check-circle"
                         onClick={handleAliasChange} 
                         disabled={!alias || isUpdating || isNameUnchanged}
                         className="p-button-primary save-custom-name"

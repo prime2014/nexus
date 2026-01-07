@@ -103,14 +103,12 @@
 
 .name-input-group {
     display: flex;
-    gap: 10px;
-    align-items: center;
+    gap: 15px; /* Slightly wider gap for better touch targets */
+    align-items: stretch; /* Ensures button and dropdown match height */
 }
 
-/* Adjust InputText style for better integration (if needed) */
-.name-input-group .p-inputtext-lg {
+.name-input-group .p-dropdown {
     flex-grow: 1;
-    height: 45px; /* Taller input for modern look */
 }
 
 .save-custom-name {

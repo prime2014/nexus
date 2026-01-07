@@ -2,8 +2,7 @@
 use chrono::{Duration, Local};
 use log::info;
 use simplelog::{
-    ColorChoice, CombinedLogger, ConfigBuilder, LevelFilter, TermLogger,
-    TerminalMode, WriteLogger,
+    ColorChoice, CombinedLogger, ConfigBuilder, LevelFilter, TermLogger, TerminalMode, WriteLogger,
 };
 use std::fs::{self, OpenOptions};
 use std::path::Path;
@@ -13,7 +12,6 @@ use time::macros::format_description;
 
 pub static TIME_FORMAT: &[FormatItem<'static>] =
     format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
-
 
 pub fn init_logger(app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let log_dir = app_handle
@@ -37,8 +35,8 @@ pub fn init_logger(app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Err
         .set_time_offset_to_local()
         .map_err(|_| "Config error")?
         .set_time_format_custom(TIME_FORMAT)
-        .set_location_level(LevelFilter::Error)  // ← ADD THIS LINE
-        .set_target_level(LevelFilter::Error)    // ← ADD THIS LINE
+        .set_location_level(LevelFilter::Error) // ← ADD THIS LINE
+        .set_target_level(LevelFilter::Error) // ← ADD THIS LINE
         .build();
 
     CombinedLogger::init(vec![
@@ -57,7 +55,10 @@ pub fn init_logger(app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Err
     Ok(())
 }
 
-pub fn cleanup_old_logs(log_dir: &Path, days_to_keep: u64) -> Result<(), Box<dyn std::error::Error>> {
+pub fn cleanup_old_logs(
+    log_dir: &Path,
+    days_to_keep: u64,
+) -> Result<(), Box<dyn std::error::Error>> {
     let cutoff = Local::now() - Duration::days(days_to_keep as i64);
 
     for entry in fs::read_dir(log_dir)?.flatten() {

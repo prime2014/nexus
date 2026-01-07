@@ -1,12 +1,9 @@
 // src/setup.rs or wherever these commands are
 
-
 use crate::database::Database;
 use rusqlite::params;
 
 use tauri::{AppHandle, Manager, State};
-
-
 
 #[derive(serde::Deserialize, Debug)]
 pub struct AppSettings {
@@ -19,14 +16,11 @@ pub struct AppSettings {
     pub sqlite_file_path: Option<String>,
 }
 
-
 #[derive(serde::Serialize)]
 pub struct DefaultPaths {
     pub log_directory: String,
     pub database_directory: String,
 }
-
-
 
 /// Returns whether the initial setup wizard has been completed
 #[tauri::command]
@@ -51,29 +45,29 @@ pub fn set_setup_complete(db: State<'_, Database>) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
 
     // Update if row exists
-    let updated = conn.execute(
-        "UPDATE settings SET setup_complete = 1 WHERE id = 1",
-        [],
-    ).map_err(|e| e.to_string())?;
+    let updated = conn
+        .execute("UPDATE settings SET setup_complete = 1 WHERE id = 1", [])
+        .map_err(|e| e.to_string())?;
 
     // If no row was updated, insert the first row
     if updated == 0 {
         conn.execute(
             "INSERT INTO settings (id, setup_complete) VALUES (1, 1)",
             [],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     Ok(())
 }
 
-
 #[tauri::command]
 pub fn save_setup_settings(db: State<'_, Database>, settings: AppSettings) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
 
-    let updated = conn.execute(
-        "UPDATE settings SET 
+    let updated = conn
+        .execute(
+            "UPDATE settings SET 
             default_theme = ?1,
             default_baud_rate = ?2,
             auto_connect_enabled = ?3,
@@ -83,16 +77,17 @@ pub fn save_setup_settings(db: State<'_, Database>, settings: AppSettings) -> Re
             sqlite_file_path = ?7,
             setup_complete = 1
         WHERE id = 1",
-        params![
-            &settings.theme,
-            settings.baud_rate_default as i32,
-            settings.auto_connect_enabled as i32,
-            &settings.default_doctor_name,
-            &settings.log_level,
-            &settings.log_file_location,
-            &settings.sqlite_file_path,
-        ],
-    ).map_err(|e| e.to_string())?;
+            params![
+                &settings.theme,
+                settings.baud_rate_default as i32,
+                settings.auto_connect_enabled as i32,
+                &settings.default_doctor_name,
+                &settings.log_level,
+                &settings.log_file_location,
+                &settings.sqlite_file_path,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
 
     if updated == 0 {
         // Insert first row — now with correct number of columns and placeholders
@@ -117,24 +112,20 @@ pub fn save_setup_settings(db: State<'_, Database>, settings: AppSettings) -> Re
                 &settings.log_file_location,
                 &settings.sqlite_file_path,
             ],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     Ok(())
 }
 
-
 #[tauri::command]
 pub async fn get_default_paths(app: tauri::AppHandle) -> Result<DefaultPaths, String> {
     use std::path::PathBuf;
 
-    let log_dir: PathBuf = app.path()
-        .app_log_dir()
-        .map_err(|e| e.to_string())?;
+    let log_dir: PathBuf = app.path().app_log_dir().map_err(|e| e.to_string())?;
 
-    let data_dir: PathBuf = app.path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let data_dir: PathBuf = app.path().app_data_dir().map_err(|e| e.to_string())?;
 
     let db_path = data_dir.join("app.db");
 
