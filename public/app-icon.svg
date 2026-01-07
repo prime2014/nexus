@@ -1,0 +1,129 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Deep space background -->
+  <rect width="512" height="512" fill="#0B0D17" rx="90"/>
+  
+  <!-- Subtle radial backdrop -->
+  <circle cx="256" cy="256" r="220" fill="url(#backdrop)" opacity="0.25"/>
+  
+  <!-- Main "N" letter form - sleek and geometric -->
+  <g id="letterN">
+    <!-- Left vertical -->
+    <rect x="140" y="140" width="45" height="232" rx="8" fill="url(#neonGrad1)"/>
+    
+    <!-- Diagonal connector with glow -->
+    <path d="M 185 140 L 327 340 L 327 372 L 277 372 L 140 180 L 140 140 Z" 
+          fill="url(#neonGrad2)"/>
+    
+    <!-- Right vertical -->
+    <rect x="327" y="140" width="45" height="232" rx="8" fill="url(#neonGrad3)"/>
+    
+    <!-- Inner glow effect on N -->
+    <rect x="140" y="140" width="45" height="232" rx="8" fill="none" stroke="#06ffa5" stroke-width="2" opacity="0.3"/>
+    <rect x="327" y="140" width="45" height="232" rx="8" fill="none" stroke="#06ffa5" stroke-width="2" opacity="0.3"/>
+  </g>
+  
+  <!-- Floating particles around the N -->
+  <circle cx="120" cy="180" r="3" fill="#06ffa5" opacity="0.7"/>
+  <circle cx="390" cy="220" r="4" fill="#00d4ff" opacity="0.6"/>
+  <circle cx="115" cy="290" r="2.5" fill="#06ffa5" opacity="0.8"/>
+  <circle cx="395" cy="320" r="3.5" fill="#00d4ff" opacity="0.7"/>
+  <circle cx="256" cy="110" r="3" fill="#00d4ff" opacity="0.6"/>
+  <circle cx="256" cy="400" r="2" fill="#06ffa5" opacity="0.5"/>
+  
+  <!-- Medical pulse line integrated into design -->
+  <g opacity="0.5">
+    <path d="M 100 256 L 140 256 L 155 240 L 165 270 L 180 256 L 190 250 L 200 256" 
+          stroke="#06ffa5" 
+          stroke-width="2.5" 
+          fill="none" 
+          stroke-linecap="round"/>
+    <path d="M 312 256 L 322 262 L 332 256 L 347 270 L 357 240 L 372 256 L 412 256" 
+          stroke="#06ffa5" 
+          stroke-width="2.5" 
+          fill="none" 
+          stroke-linecap="round"/>
+  </g>
+  
+  <!-- Hexagonal frame around everything -->
+  <path d="M 256 50 L 420 145 L 420 367 L 256 462 L 92 367 L 92 145 Z" 
+        stroke="url(#frameGrad)" 
+        stroke-width="3" 
+        fill="none" 
+        opacity="0.4"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+  
+  <!-- Corner brackets for tech feel -->
+  <g opacity="0.6">
+    <!-- Top left -->
+    <line x1="70" y1="90" x2="110" y2="90" stroke="#00d4ff" stroke-width="3"/>
+    <line x1="70" y1="90" x2="70" y2="130" stroke="#00d4ff" stroke-width="3"/>
+    
+    <!-- Top right -->
+    <line x1="442" y1="90" x2="402" y2="90" stroke="#00d4ff" stroke-width="3"/>
+    <line x1="442" y1="90" x2="442" y2="130" stroke="#00d4ff" stroke-width="3"/>
+    
+    <!-- Bottom left -->
+    <line x1="70" y1="422" x2="110" y2="422" stroke="#00d4ff" stroke-width="3"/>
+    <line x1="70" y1="422" x2="70" y2="382" stroke="#00d4ff" stroke-width="3"/>
+    
+    <!-- Bottom right -->
+    <line x1="442" y1="422" x2="402" y2="422" stroke="#00d4ff" stroke-width="3"/>
+    <line x1="442" y1="422" x2="442" y2="382" stroke="#00d4ff" stroke-width="3"/>
+  </g>
+  
+  <!-- Scan line effect -->
+  <line x1="80" y1="256" x2="432" y2="256" 
+        stroke="url(#scanGrad)" 
+        stroke-width="1.5" 
+        opacity="0.3"/>
+  
+  <!-- Glow spots for depth -->
+  <circle cx="256" cy="256" r="140" fill="url(#centerGlow)" opacity="0.15"/>
+  
+  <!-- Gradients and Effects -->
+  <defs>
+    <!-- Backdrop radial -->
+    <radialGradient id="backdrop">
+      <stop offset="0%" style="stop-color:#1a4d5f;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#0B0D17;stop-opacity:0"/>
+    </radialGradient>
+    
+    <!-- Main N gradients - minty cyan to electric blue -->
+    <linearGradient id="neonGrad1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#06ffa5;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#00d4ff;stop-opacity:1"/>
+    </linearGradient>
+    
+    <linearGradient id="neonGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06ffa5;stop-opacity:1"/>
+      <stop offset="50%" style="stop-color:#00fff9;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#00d4ff;stop-opacity:1"/>
+    </linearGradient>
+    
+    <linearGradient id="neonGrad3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d4ff;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#0099ff;stop-opacity:1"/>
+    </linearGradient>
+    
+    <!-- Frame gradient -->
+    <linearGradient id="frameGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06ffa5;stop-opacity:1"/>
+      <stop offset="50%" style="stop-color:#00d4ff;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#06ffa5;stop-opacity:1"/>
+    </linearGradient>
+    
+    <!-- Scan line -->
+    <linearGradient id="scanGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#06ffa5;stop-opacity:0"/>
+      <stop offset="50%" style="stop-color:#00d4ff;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#06ffa5;stop-opacity:0"/>
+    </linearGradient>
+    
+    <!-- Center glow -->
+    <radialGradient id="centerGlow">
+      <stop offset="0%" style="stop-color:#00fff9;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#00fff9;stop-opacity:0"/>
+    </radialGradient>
+  </defs>
+</svg>

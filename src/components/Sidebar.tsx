@@ -23,7 +23,7 @@ export default function SidebarMenu() {
         boxSizing: "border-box",
       }}
     >
-      <h2 style={{ marginBottom: "2rem" }}>SerialScope</h2>
+      <h2 style={{ marginBottom: "2rem" }}>Nexus</h2>
       <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
         {menuItems.map((item) => (
           <li
