@@ -37,6 +37,8 @@ import { Provider } from "react-redux";
 import { store } from "./store";
 import "./index.css";
 
+// v0.1.4
+
 async function bootstrap() {
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
 
