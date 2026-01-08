@@ -381,7 +381,7 @@ export default function Analytics() {
         <div className="analytics-container">
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h1>📊 Patient Analytics Dashboard</h1>
+                <h1>📊 Patient Analytics Dashboard - {`${patientName}`}</h1>
 
                 <Button
                     icon="pi pi-reply"
@@ -433,10 +433,6 @@ export default function Analytics() {
                 <p className="initial-message">Enter a patient name or ID above to view analytics.</p>
             ) : (
                 <>
-                    <p className="patient-header-title">
-                        Analytics for: <strong>{patientName}</strong>
-                    </p>
-
                     {/* Stats Panel (Unchanged) */}
                     <div className="stats-panel">
                         <div className="stat-card">
@@ -483,23 +479,12 @@ export default function Analytics() {
 
 
                     {/* 🌟 MODIFIED: Chart Grid Container */}
-                    <div className="chart-grid card"> 
+                    <div className="chart-grid card" style={{ margin: "0 !important" }}> 
                         
                         {/* --- 1. Comparative Admissions Chart (Large) --- */}
                         <div className="chart-item comparative-chart">
-                            <h2 style={{ display: "flex", justifyContent:"space-between", alignItems: "center" }}>
+                            <h2 style={{ lineHeight: "20px", display: "flex", justifyContent:"space-between", alignItems: "center" }}>
                                 <span>Latest {MAX_CHART_ENTRIES} Admission Voltages</span>
-                                <Button 
-                                onClick={() => setVisibleMetrics({ 
-                                    avg_reference_voltage: true, 
-                                    avg_cancer_voltage: true, 
-                                    cumulativeAvg: true 
-                                })}
-                                size="small"
-                                outlined
-                                label="Show All Metrics"
-                                className="reset-btn w-fit"
-                            />
                             </h2>
                             
                             {admissions.length > MAX_CHART_ENTRIES && (
@@ -515,7 +500,13 @@ export default function Analytics() {
                                         margin={{ top: 40, right: 30, left: 20, bottom: 5 }}
                                     >
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={130} interval={0} />
+                                        <XAxis tickFormatter={(value, index) => {
+                                                const total = chartDataWithCumulativeTrend.length;
+                                                return `Test ${total - index}`;
+                                            }} dataKey="name" angle={-45} textAnchor="end" height={50} interval={0}  
+                                            stroke="#888"
+                                            tick={{ fontSize: 12 }}    
+                                        />
                                         <YAxis label={{ value: 'Voltage (V)', angle: -90, position: 'insideLeft' }} />
                                         <Tooltip content={<CustomTooltip />} />
                                         

@@ -11,7 +11,7 @@
 
 /* Base Styles */
 .analytics-container {
-    padding: 30px 40px; 
+    padding: 20px 40px; 
     background-color: var(--background-light);
     min-height: 100vh;
     color: var(--text-dark);

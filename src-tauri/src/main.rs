@@ -44,16 +44,17 @@ fn main() {
         }
     }
 
-    let _single_instance =
-        tauri_plugin_single_instance::init(|app: &AppHandle<Wry>, _argv, _cwd| {
-            log::warn!("Another instance is already running. Bringing it to front.");
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-        });
+    let single_instance_plugin = tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        log::warn!("Another instance is already running. Bringing it to front.");
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+            let _ = window.unminimize();
+        }
+    });
 
     tauri::Builder::default()
+        .plugin(single_instance_plugin)
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())

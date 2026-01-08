@@ -153,7 +153,7 @@ export default function Settings() {
                     description="Check if you are running the latest medical diagnostic patches."
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <span style={{ fontWeight: 'bold' }}>v0.1.4</span>
+                        <span style={{ fontWeight: 'bold' }}>v0.1.5</span>
                         <Button 
                             label={checkingUpdate ? "Checking..." : "Check for Updates"} 
                             icon={checkingUpdate ? "pi pi-spin pi-spinner" : "pi pi-refresh"} 
