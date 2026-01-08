@@ -414,12 +414,6 @@ export default function Analytics() {
                         <FaSearch /> {loading ? "Searching..." : "Search"}
                     </button>
 
-                    <button 
-                        className="clear-btn"
-                        onClick={handleClear} 
-                        disabled={loading && isInitialLoad}>
-                        <FaTimes /> Clear
-                    </button>
                 </div>
             </div>
 
@@ -435,7 +429,7 @@ export default function Analytics() {
                 <>
                     {/* Stats Panel (Unchanged) */}
                     <div className="stats-panel">
-                        <div className="stat-card">
+                        <div className="stat-card analytics-stat">
                             <span className="stat-icon"><FaTimes /></span>
                             <div className="stat-info">
                                 <p className="stat-value">{totalRecords}</p>
@@ -443,7 +437,7 @@ export default function Analytics() {
                             </div>
                         </div>
                        
-                        <div className="stat-card">
+                        <div className="stat-card analytics-stat">
                             <span className="stat-icon"><FaUserMd /></span>
                             <div className="stat-info">
                                 <p className="stat-value">{stats.doctorCount}</p>
@@ -451,7 +445,7 @@ export default function Analytics() {
                             </div>
                         </div>
                         
-                        <div className="stat-card stat-card-cancer">
+                        <div className="stat-card stat-card-cancer analytics-stat">
                             <span className="stat-icon">C</span>
                             <div className="stat-info">
                                 {/* Wrap everything in a flex container to align them horizontally */}
@@ -466,7 +460,7 @@ export default function Analytics() {
                             </div>
                         </div>
 
-                        <div className="stat-card stat-card-reference"> 
+                        <div className="stat-card stat-card-reference analytics-stat"> 
                             <span className="stat-icon">R</span>
                             <div className="stat-info">
                                 {/* Use globalStats instead of stats */}
@@ -494,7 +488,7 @@ export default function Analytics() {
                             )}
                             
                             <div className="chart-container-lg">
-                                <ResponsiveContainer width="100%" height={450}>
+                                <ResponsiveContainer width="100%" height={350}>
                                     <ComposedChart
                                         data={chartDataWithCumulativeTrend}
                                         margin={{ top: 40, right: 30, left: 20, bottom: 5 }}
@@ -547,12 +541,12 @@ export default function Analytics() {
 
                         {/* --- 2. Overall Averages Chart (Small, Side-by-Side) --- */}
                         <div className="chart-item overall-chart">
-                            <h2>Overall Patient Average</h2>
+                            <h4>Overall Patient Average</h4>
                             <p className="chart-note">
                                 *Average based on all {totalRecords} valid tests recorded.
                             </p>
                             <div className="chart-container-sm">
-                                <ResponsiveContainer width="100%" height={400}>
+                                <ResponsiveContainer width="100%" height={330}>
                                     <BarChart
                                         data={overallChartData}
                                         margin={{ top: 40, right: 10, left: 10, bottom: 5 }}

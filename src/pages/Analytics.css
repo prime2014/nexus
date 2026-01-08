@@ -112,6 +112,10 @@
     font-weight: 300;
 }
 
+.analytics-stat {
+    background-color: white !important;
+}
+
 /* Stats Panel (The highlight section) */
 .stats-panel {
     display: flex;

@@ -19,7 +19,8 @@ import { setDevices } from "./store/arduinoSlice";
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import SetupWizard from "./pages/Setup";
 import { setSettings } from "./store/settingsSlice";
-
+import { useAutoUpdater } from "./components/AutoUpdater";
+import "./index.css";
 
 interface MyAppSettings {
     theme: string;
@@ -55,6 +56,7 @@ const cleanDeviceForRedux = (d: any): ArduinoDevice => ({
 // 🚨 NEW: AppInitializer Component - Handles the strict sequential setup
 function AppInitializer({ children }) {
     // Get the core functions from the watcher hook
+    const { status, manifest, triggerUpdate, installing } = useAutoUpdater();
     const { isAppReady, setupListenersAndStartScan } = useArduinoWatcher();
     
     const dispatch = useDispatch(); // Get dispatch for Redux actions
@@ -129,6 +131,27 @@ function AppInitializer({ children }) {
         
     }, [isDbLoaded, setupListenersAndStartScan]); 
 
+    if (status === 'checking') {
+        return <div className="init-loader">Verifying System Integrity...</div>;
+    }
+
+    if (status === 'available') {
+        return (
+            <div className="force-update-container">
+                <div className="force-update-card">
+                    <h2>Update Required</h2>
+                    <p>A critical diagnostic update (v{manifest?.version}) is required to continue.</p>
+                    <button 
+                        disabled={installing} 
+                        onClick={triggerUpdate}
+                        className="update-btn"
+                    >
+                        {installing ? "Installing..." : "Update & Relaunch"}
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     // 3. Render Gate: Wait for both steps to complete
     if (!isAppReady) {
