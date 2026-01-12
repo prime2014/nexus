@@ -302,7 +302,7 @@ export default function PatientList() {
                 <Column field="firstname" header="First Name" sortable style={{ width: '25%' }} />
                 <Column field="test_type" header="Test Type" sortable style={{ width: '25%' }} />
                 <Column field="location" header="Location" sortable style={{ width: '25%' }} />
-                <Column field="classification" header="Type" sortable style={{ width: '15%' }} />
+                <Column field="classification" header="Classification" sortable style={{ width: '15%' }} />
                 <Column 
                     body={actionBodyTemplate} 
                     header="Actions" 
@@ -322,7 +322,7 @@ export default function PatientList() {
                 onHide={() => setEditModalVisible(false)}
                 footer={(
                     <div>
-                        <Button label="Cancel" icon="pi pi-times" onClick={() => setEditModalVisible(false)} className="p-button-text" />
+                        <Button label="Cancel" icon="pi pi-times" onClick={() => setEditModalVisible(false)} className="p-button-text cancel-style" />
                         <Button 
                             label={isNewPatient ? "Create Patient" : "Save Changes"} 
                             icon="pi pi-check" 
@@ -399,7 +399,7 @@ export default function PatientList() {
 
                         {/* Location */}
                         <div className="field col-12">
-                            <label htmlFor="location">Location</label>
+                            <label htmlFor="location">Residential Location</label>
                             <InputText 
                                 id="location" 
                                 value={currentPatient.location ?? ''} 

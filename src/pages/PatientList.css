@@ -41,3 +41,8 @@
     left: 0.75rem !important; /* Move the icon slightly away from the edge */
     font-size: 1rem; /* Ensure the icon is a standard, readable size */
 }
+
+
+.cancel-style {
+    margin-bottom: 10px !important;
+}
