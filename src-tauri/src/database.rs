@@ -13,6 +13,7 @@ use log::{error, info, warn};
 use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
 use serde::Deserialize;
+use rusqlite::OptionalExtension;
 
 #[derive(Clone)]
 pub struct Database(pub Arc<Mutex<Connection>>);
@@ -79,10 +80,64 @@ pub struct AdmissionPayload {
     pub cancer_tests: String,       // JSON String
 }
 
+
+#[derive(serde::Serialize)]
+pub struct PaginatedPatients {
+    pub data: Vec<PatientRecord>,
+    pub total_count: u32,
+}
+
+#[tauri::command]
+pub fn get_paginated_patients(
+    db: State<'_, Database>, 
+    limit: u32, 
+    offset: u32,
+    search_query: String
+) -> Result<PaginatedPatients, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+
+    // 1. Get total count for the paginator (including search filter)
+    let mut count_stmt = conn.prepare(
+        "SELECT COUNT(*) FROM patients WHERE admission_no LIKE ?1 OR lastname LIKE ?1 OR firstname LIKE ?1"
+    ).map_err(|e| e.to_string())?;
+    
+    let pattern = format!("%{}%", search_query);
+    let total_count: u32 = count_stmt.query_row([&pattern], |r| r.get(0)).map_err(|e| e.to_string())?;
+
+    // 2. Get the specific page of data
+    let mut stmt = conn.prepare(
+        "SELECT id, admission_no, national_id, firstname, lastname, test_type, location, 
+                contact_person, telephone_1, telephone_2, classification, doctor 
+         FROM patients 
+         WHERE admission_no LIKE ?1 OR lastname LIKE ?1 OR firstname LIKE ?1
+         ORDER BY id DESC LIMIT ?2 OFFSET ?3"
+    ).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map([&pattern, &limit.to_string(), &offset.to_string()], |row| {
+        Ok(PatientRecord {
+                id: row.get(0)?,
+                admission_no: row.get(1)?,
+                national_id: row.get(2)?,
+                firstname: row.get(3)?,
+                lastname: row.get(4)?,
+                test_type: row.get(5)?,
+                location: row.get(6)?,
+                contact_person: row.get(7)?,
+                telephone_1: row.get(8)?,
+                telephone_2: row.get(9)?,
+                classification: row.get(10)?,
+                doctor: row.get(11)?,
+            })
+    }).map_err(|e| e.to_string())?
+      .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+
+    Ok(PaginatedPatients { data: rows, total_count })
+}
+
+
 /* ----------------------------------------
    LOG EVENT HELPER
 ----------------------------------------- */
-
 fn log_event(conn: &Connection, message: &str) -> Result<(), rusqlite::Error> {
     conn.execute("INSERT INTO event_logs (message) VALUES (?1)", [message])?;
     Ok(())
@@ -98,79 +153,8 @@ pub fn init_database(app: &AppHandle) -> Result<Connection, Box<dyn std::error::
     // Define the migrations
     let migrations = Migrations::new(vec![
         // M0: Initial Database Setup
-        M::up(
-            "
-            CREATE TABLE IF NOT EXISTS app_settings (
-                key TEXT PRIMARY KEY,
-                value TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS patients (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                admission_no TEXT UNIQUE NOT NULL,
-                national_id TEXT,
-                firstname TEXT NOT NULL,
-                lastname TEXT NOT NULL,
-                location TEXT NULL,
-                test_type TEXT NULL,
-                contact_person TEXT,
-                telephone_1 TEXT,
-                telephone_2 TEXT,
-                classification TEXT CHECK(classification IN ('inpatient', 'outpatient')),
-                doctor TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS admissions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                admission_no TEXT NOT NULL,
-                doctor_in_charge TEXT NOT NULL,
-                technician TEXT,
-                diabetes_test INTEGER,
-                reference JSON DEFAULT '{}',
-                cancer_tests JSON DEFAULT '{}',
-                timestamp DATETIME DEFAULT (datetime('now', 'localtime')),
-                FOREIGN KEY (admission_no) REFERENCES patients(admission_no)
-                    ON UPDATE CASCADE
-                    ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS event_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                message TEXT NOT NULL,
-                timestamp DATETIME DEFAULT (datetime('now', 'localtime'))
-            );
-
-            CREATE TABLE IF NOT EXISTS devices (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                vid INTEGER NOT NULL,
-                pid INTEGER NOT NULL,
-                serial_number TEXT,
-                product TEXT,
-                custom_name TEXT,
-                device_unit TEXT,
-                last_seen DATETIME DEFAULT (datetime('now', 'localtime'))
-            );
-
-            CREATE TABLE IF NOT EXISTS settings (
-                id INTEGER PRIMARY KEY DEFAULT 1,
-                default_theme TEXT NOT NULL DEFAULT 'system',
-                default_baud_rate INTEGER NOT NULL DEFAULT 9600,
-                auto_connect_enabled BOOLEAN NOT NULL DEFAULT 1,
-                default_doctor_name TEXT NULL,
-                default_log_level TEXT NULL DEFAULT 'info',
-                log_file_location TEXT NULL,
-                sqlite_file_path TEXT NULL,
-                setup_complete BOOLEAN NOT NULL DEFAULT 0
-                CHECK(id = 1) 
-            );
-
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_device_hardware 
-                ON devices (vid, pid, serial_number);
-
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_custom_name 
-                ON devices (custom_name) WHERE custom_name IS NOT NULL AND custom_name != '';
-        ",
-        ),
+        M::up(include_str!("./migrations/0000_initial.sql")),
+        M::up(include_str!("./migrations/0001_reference_volt.sql")),
     ]);
 
     // Apply migrations to bring the database to the latest version
@@ -212,6 +196,13 @@ pub struct PatientData {
     pub doctor_in_charge: Option<String>,
     pub diabetes_test: Option<Number>,
     pub cancer_test: Option<CancerTest>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GlobalReference {
+    pub voltage: f64,
+    pub technician: Option<String>,
+    pub timestamp: String,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -273,40 +264,6 @@ pub fn save_patient(db: State<'_, Database>, data: PatientData) -> Result<(), St
 
     Ok(())
 }
-
-/* ----------------------------------------
-   SAVE ADMISSION
------------------------------------------ */
-
-// #[tauri::command]
-// pub fn save_admission(db: State<'_, Database>, data: AdmissionData) -> Result<(), String> {
-//     let conn = db.0.lock().map_err(|e| e.to_string())?;
-
-//     conn.execute(
-//         "
-//         INSERT INTO admissions (
-//             admission_no,
-//             doctor_in_charge,
-//             technician,
-//             diabetes_test,
-//             reference,          /* <--- NEW: Insert the reference column */
-//             cancer_tests
-//         )
-//         VALUES (?1, ?2, ?3, ?4, ?5, ?6) /* <--- NEW: Added one parameter slot */
-//         ",
-//         params![
-//             data.admission_no,
-//             data.doctor_in_charge,
-//             data.technician,
-//             data.diabetes_test,
-//             data.reference,     /* <--- NEW: Map data.reference to ?5 */
-//             data.cancer_tests,  // <- Now mapped to ?6
-//         ],
-//     )
-//     .map_err(|e| e.to_string())?;
-
-//     Ok(())
-// }
 
 #[tauri::command]
 pub async fn save_admission(db: State<'_, Database>, data: AdmissionPayload) -> Result<(), String> {
@@ -438,6 +395,48 @@ pub fn save_patient_with_admission(
 
     Ok(())
 }
+
+
+#[tauri::command]
+pub fn get_global_reference(db: State<'_, Database>) -> Result<Option<GlobalReference>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+
+    let result = conn.query_row(
+        "SELECT voltage, technician, updated_at FROM global_references WHERE id = 1",
+        [],
+        |row| {
+            Ok(GlobalReference {
+                voltage: row.get(0)?,
+                technician: row.get(1)?,
+                timestamp: row.get(2)?,
+            })
+        },
+    ).optional().map_err(|e| e.to_string())?;
+
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn update_global_reference(
+    db: State<'_, Database>, 
+    voltage: f64, 
+    technician: Option<String>
+) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT INTO global_references (id, voltage, technician, updated_at) 
+         VALUES (1, ?1, ?2, CURRENT_TIMESTAMP)
+         ON CONFLICT(id) DO UPDATE SET 
+            voltage = excluded.voltage,
+            technician = excluded.technician,
+            updated_at = CURRENT_TIMESTAMP",
+        params![voltage, technician],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 
 #[tauri::command]
 pub fn get_all_patients(db: State<'_, Database>) -> Result<Vec<PatientRecord>, String> {
@@ -604,6 +603,42 @@ pub fn get_admissions_count(db: State<'_, Database>, query: String) -> Result<u3
 
     Ok(count)
 }
+
+
+#[tauri::command]
+pub fn get_patient_diabetes_tests(
+    db: State<'_, Database>, 
+    patient_id: String 
+) -> Result<Vec<f64>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT diabetes_test 
+             FROM admissions 
+             WHERE admission_no = ?1 
+               AND diabetes_test IS NOT NULL 
+             ORDER BY timestamp DESC
+             LIMIT 1
+             "
+        )
+        .map_err(|e| e.to_string())?;
+
+    let rows = stmt
+        .query_map([patient_id], |row| {
+            // Fetching only the first (and only) column as f64
+            row.get::<_, f64>(0)
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut results = Vec::new();
+    for row in rows {
+        results.push(row.map_err(|e| e.to_string())?);
+    }
+
+    Ok(results)
+}
+
 
 #[tauri::command]
 // src/database.rs (FINAL MODIFIED COMMAND)

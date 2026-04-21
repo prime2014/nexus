@@ -1,4 +1,3 @@
-// src/main.rs
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod arduino;
@@ -11,10 +10,8 @@ mod user;
 
 use once_cell::sync::Lazy;
 use std::sync::atomic::{AtomicBool, Ordering};
-use tauri::{AppHandle, Manager, State, Wry};
+use tauri::{AppHandle, Manager, State, Listener};
 use tauri_plugin_dialog::init;
-
-use tauri::Listener;
 
 use arduino::{
     scan_arduino_now, start_arduino_watcher, start_reading_from_port, stop_arduino_watcher,
@@ -26,6 +23,7 @@ use database::{
     get_logs, get_patient_by_admission_no, get_patient_count, init_database, log_event_command,
     save_admission, save_patient, save_patient_with_admission, search_admissions_by_patient,
     search_patients, update_device_alias, update_patient_data, upsert_patient_metadata, Database,
+    get_global_reference, update_global_reference, get_paginated_patients, get_patient_diabetes_tests,
 };
 use logging::init_logger;
 use setup::{get_default_paths, save_setup_settings, set_setup_complete};
@@ -136,18 +134,15 @@ fn main() {
                 } else {
                     let _ = setup_window.show();
 
-                    // Listen for the frontend event
                     let main_w = main_window.clone();
                     let handle_clone = init_handle.clone();
 
                     init_handle.listen("setup-finished", move |event| {
                         log::info!("Setup event received: {:?}", event.payload());
 
-                        // Show the hidden main window
                         let _ = main_w.show();
                         let _ = main_w.set_focus();
 
-                        // Start background services (like Arduino) now that we have settings
                         let h = handle_clone.clone();
                         tauri::async_runtime::spawn(async move {
                             let _ = start_arduino_watcher(h).await;
@@ -174,6 +169,7 @@ fn main() {
             get_current_user,
             search_patients,
             get_all_patients,
+            get_paginated_patients,
             search_admissions_by_patient,
             update_device_alias,
             fetch_all_known_devices,
@@ -187,7 +183,10 @@ fn main() {
             get_app_settings,
             get_admissions_count,
             get_global_admission_stats,
-            get_latest_5_admissions
+            get_latest_5_admissions,
+            get_global_reference,
+            update_global_reference,
+            get_patient_diabetes_tests
         ])
         .run(tauri::generate_context!())
         .expect("Error while running Tauri application");

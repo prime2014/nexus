@@ -181,16 +181,10 @@ pub async fn manual_read_loop(
         Err(e) => {
             let msg = e.to_string();
             error!("Failed to open {}: {}", port_name, msg);
-            let _ = app.emit(
-                "arduino-disconnected",
-                json!({
-                    "port": &port_name,
-                    "error": msg
-                }),
-            );
-            let _ = DESIRED_READING_PORTS
-                .lock()
-                .map(|mut s| s.remove(&port_name));
+            let _ = app.emit("arduino-disconnected", json!({ "port": &port_name, "error": msg }));
+            
+            // Clean up global state if we fail to open
+            let _ = DESIRED_READING_PORTS.lock().map(|mut s| s.remove(&port_name));
             let _ = app.emit("arduino-reading-stopped", json!({ "port": &port_name }));
             return Err(e.into());
         }
@@ -198,47 +192,44 @@ pub async fn manual_read_loop(
 
     // DTR reset
     let _ = serial_port.write_data_terminal_ready(true);
-    std::thread::sleep(Duration::from_millis(250));
+    tokio::time::sleep(Duration::from_millis(250)).await;
     let _ = serial_port.write_data_terminal_ready(false);
-
-    info!(
-        "Arduino reset complete on {}. Starting read loop...",
-        port_name
-    );
 
     let mut reader = StdBufReader::new(serial_port);
     let mut line = String::new();
-    let timeout_duration = Duration::from_secs(10);
+    
+    // === DEFINE TIMERS HERE ===
+    let start_time = Instant::now(); // <--- ADD THIS LINE
     let mut last_data_time = Instant::now();
+    let max_duration = Duration::from_secs(10);
+    let inactivity_timeout = Duration::from_secs(10);
 
     macro_rules! fail_and_forget {
         ($error_msg:expr, $toast_key:expr) => {{
             error!("{} on {}", $error_msg, port_name);
-            let _ = app.emit("arduino-disconnected", json!({
-                "port": &port_name,
-                "error": $error_msg
-            }));
-            // Dedicated timeout event for nice toast
-            let _ = app.emit($toast_key, json!({
-                "port": &port_name,
-                "message": $error_msg
-            }));
-            let _ = DESIRED_READING_PORTS.lock().map(|mut s| s.remove(&port_name));
-            let _ = app.emit("arduino-reading-stopped", json!({ "port": &port_name }));
-            break;
+            let _ = app.emit("arduino-disconnected", json!({ "port": &port_name, "error": $error_msg }));
+            let _ = app.emit($toast_key, json!({ "port": &port_name, "message": $error_msg }));
+            break; // Jump to cleanup below the loop
         }};
     }
 
     loop {
-        line.clear();
-
-        // 30-second timeout — user-friendly message
-        if last_data_time.elapsed() > timeout_duration {
-            fail_and_forget!(
-                "No data received for 10 seconds. Measurement stopped.",
-                "arduino-timeout"
-            );
+        // 1. Check Hard Cutoff
+        if start_time.elapsed() > max_duration {
+            info!("Max duration reached for {}", port_name);
+            let _ = app.emit("arduino-timeout", json!({ 
+                "port": &port_name, 
+                "message": "10-second limit reached." 
+            }));
+            break; 
         }
+
+        // 2. Check Inactivity
+        if last_data_time.elapsed() > inactivity_timeout {
+            fail_and_forget!("No data received for 10 seconds.", "arduino-timeout");
+        }
+
+        line.clear();
 
         match reader.read_line(&mut line) {
             Ok(0) => fail_and_forget!("Connection lost unexpectedly", "arduino-error"),
@@ -251,39 +242,32 @@ pub async fn manual_read_loop(
                 last_data_time = Instant::now();
                 debug!("DATA: {}", data);
 
-                let _ = app.emit(
-                    "arduino-data",
-                    json!({
-                        "port": &port_name,
-                        "data": data
-                    }),
-                );
+                let _ = app.emit("arduino-data", json!({ "port": &port_name, "data": data }));
 
                 if data.contains("cycles completed") {
-                    info!(
-                        "Measurement successfully finished on {} (3 cycles)",
-                        port_name
-                    );
-                    let _ = DESIRED_READING_PORTS
-                        .lock()
-                        .map(|mut s| s.remove(&port_name));
+                    info!("Measurement finished on {} (3 cycles)", port_name);
                     let _ = app.emit("arduino-cycle-complete", json!({ "port": &port_name }));
-                    let _ = app.emit("arduino-reading-stopped", json!({ "port": &port_name }));
                     break;
                 }
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => continue,
             Err(e) => {
-                let msg = e.to_string();
-                fail_and_forget!(msg, "arduino-error");
+                fail_and_forget!(e.to_string(), "arduino-error");
             }
         }
 
-        std::thread::sleep(Duration::from_millis(10));
+        // Use tokio sleep if this is an async function to avoid blocking threads
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
 
+    // === FINAL CLEANUP (Always runs on break) ===
+    let _ = DESIRED_READING_PORTS.lock().map(|mut s| s.remove(&port_name));
+    let _ = app.emit("arduino-reading-stopped", json!({ "port": &port_name }));
+    
+    info!("Reader loop terminated for {}", port_name);
     Ok(())
 }
+
 
 // ==============================================================================================
 //                                      TAURI COMMANDS

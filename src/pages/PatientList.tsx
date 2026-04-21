@@ -54,6 +54,12 @@ const initialFormState: PatientForm = {
 
 export default function PatientList() {
     const { default_doctor_name } = useSelector((state: RootState) => state.settings)
+    const [totalRecords, setTotalRecords] = useState(0);
+    const [lazyState, setLazyState] = useState({
+        first: 0,
+        rows: 10,
+        page: 1,
+    });
     const [patients, setPatients] = useState<PatientRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [editModalVisible, setEditModalVisible] = useState(false);
@@ -71,34 +77,35 @@ export default function PatientList() {
     /**
      * Fetches patients, supporting both full list and search queries.
      */
-    const fetchPatients = useCallback(async (query: string = '') => {
+   
+
+
+    const fetchPatients = useCallback(async () => {
         setLoading(true);
         try {
-            const trimmedQuery = query.trim();
-            let records: PatientRecord[];
-
-            if (trimmedQuery === '') {
-                records = await invoke<PatientRecord[]>("get_all_patients");
-            } else {
-                records = await invoke<PatientRecord[]>("search_patients", { query: trimmedQuery });
-            }
-            setPatients(records);
+            const response = await invoke<{data: PatientRecord[], total_count: number}>("get_paginated_patients", {
+                limit: lazyState.rows,
+                offset: lazyState.first,
+                searchQuery: globalFilterValue
+            });
+            
+            setPatients(response.data);
+            setTotalRecords(response.total_count);
         } catch (err) {
-            console.error("Failed to fetch/search patients:", err);
             toast.error("Failed to load patient data.");
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [lazyState, globalFilterValue]);
 
-    // 🚀 EFFECT for Debounced Search
+// Trigger fetch when lazyState or search changes
+useEffect(() => {
+    fetchPatients();
+}, [fetchPatients]);
+
     useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchPatients(globalFilterValue);
-        }, 300);
-
-        return () => clearTimeout(timer);
-    }, [globalFilterValue, fetchPatients]);
+        fetchPatients();
+    }, [fetchPatients]);
 
 
     /* ------------------------------------------------------------------ */
@@ -153,7 +160,7 @@ export default function PatientList() {
             }
             
             setEditModalVisible(false);
-            fetchPatients(globalFilterValue); // Reload table data
+            fetchPatients(); // Reload table data
         } catch (err: any) {
             toast.error(`${isNewPatient ? "Creation" : "Update"} failed: ${err.message || err}`);
         } finally {
@@ -176,7 +183,7 @@ export default function PatientList() {
         try {
             await invoke("delete_patient_by_admission_no", { admissionNo });
             toast.success(`Patient ${admissionNo} deleted.`);
-            fetchPatients(globalFilterValue); // Reload data
+            fetchPatients(); // Reload data
         } catch (err: any) {
             toast.error(`Delete failed: ${err.message || err}`);
         }
@@ -289,13 +296,22 @@ export default function PatientList() {
             
             {/* DataTable */}
             <DataTable 
-                className="p-datatable-sm patient-list-compact" 
                 value={patients} 
+                lazy
                 paginator 
-                rows={10} 
+                first={lazyState.first} 
+                rows={lazyState.rows} 
+                totalRecords={totalRecords}
+                onPage={(e) => {
+                    setLazyState({
+                        first: e.first,
+                        rows: e.rows,
+                        page: e.page ?? 1 // Fallback to 1 if undefined
+                    });
+                }}
                 loading={loading}
-                header={header} 
-                sortMode="multiple"
+                className="p-datatable-sm patient-list-compact"
+                header={header}
             >
                 <Column field="admission_no" header="Admission No." sortable style={{ width: '15%' }} />
                 <Column field="lastname" header="Last Name" sortable style={{ width: '25%' }} />

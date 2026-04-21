@@ -50,6 +50,7 @@ export default function PatientTestDashboard() {
     const { devices } = useSelector((state: RootState) => state.arduino);
     const { baud_rate_default } = useSelector((state: RootState) => state.settings)
     const { admissionNo: encodedAdmissionNo } = useParams<{ admissionNo: string }>();
+    const [globalReference, setGlobalReference] = useState<{ voltage: number, timestamp: string } | null>(null);
 
     const admissionNo = encodedAdmissionNo ? decodeURIComponent(encodedAdmissionNo) : null;
     
@@ -59,14 +60,15 @@ export default function PatientTestDashboard() {
     const [loadingPatient, setLoadingPatient] = useState(true);
     const [consoleLines, setConsoleLines] = useState<string[]>([]);
     const [glucoseReading, setGlucoseReading] = useState<number | null>(null);
-    const [sampleType, setSampleType] = useState<SampleType>("normal");
+    const [sampleType, setSampleType] = useState<SampleType>("cancer");
     const consoleLinesRef = useRef<string[]>([]);
     const [readingPorts, setReadingPorts] = useState<Set<string>>(new Set());
     const consoleRef = useRef<HTMLDivElement>(null);
     const [isSaving, setIsSaving] = useState(false);
-    
-   
-
+    const [modeSelected, setModeSelected] = useState(true);
+    const [isFingerPlaced, setIsFingerPlaced] = useState(true);
+    const [glucoseStatus, setGlucoseStatus] = useState<string>("");
+    const glucoseBufferRef = useRef<number[]>([]);
     // Live Chart Data
     const [chartData, setChartData] = useState<ReadingSet>([]);
     const chartDataRef = useRef<ReadingSet>([]); 
@@ -79,13 +81,42 @@ export default function PatientTestDashboard() {
     /* RUST COMMANDS (PLACEHOLDERS)                                       */
     /* ------------------------------------------------------------------ */
 
-    const startTestCycle = useCallback(async (portName: string) => {
-        const activeDevice = devices.find(d => d.port === portName);
+    // Fetch global reference on mount
+    const fetchGlobalReference = useCallback(async () => {
+        try {
+            const ref: any = await invoke("get_global_reference");
+            if (ref) setGlobalReference(ref);
+        } catch (err) {
+            console.error("Failed to fetch global reference:", err);
+        }
+    }, []);
 
-        if (isHardwareMismatch(activeDevice, sampleType)) {
-            toast.error(`Wrong Hardware! Please use the ${sampleType === 'glucose' ? 'Glucose' : 'Cancer'} unit.`);
+    useEffect(() => {
+        fetchGlobalReference();
+    }, [fetchGlobalReference]);
+
+    // Function to capture the current average as the NEW Global Reference
+    const handleSetAsGlobalReference = async () => {
+        if (avgNormalVoltage === 0) {
+            toast.error("No valid voltage readings to set as global reference.");
             return;
         }
+
+        try {
+            await invoke("update_global_reference", { 
+                voltage: avgNormalVoltage, 
+                technician: "System Admin" // Replace with actual user if available
+            });
+            toast.success("Global Reference Voltage updated!");
+            fetchGlobalReference(); // Refresh the local state
+        } catch (err) {
+            toast.error("Failed to update global reference.");
+        }
+    };
+
+    const startTestCycle = useCallback(async (portName: string, device_name: string) => {
+        const activeDevice = devices.find(d => d.port === portName);
+
 
         if (readingPorts.has(portName)) return;
         
@@ -95,7 +126,7 @@ export default function PatientTestDashboard() {
         chartDataRef.current = [];
 
         setReadingPorts(prev => new Set(prev).add(portName));
-        toast.loading(`Starting test cycle for ${sampleType} cells on ${portName}...`);
+        toast.loading(`Starting test cycle for ${device_name.toLowerCase().includes("glucose") ? "Glucose" : sampleType} on ${portName}...`);
 
         try {
             // Placeholder: Assume this Rust command starts the hardware test
@@ -103,7 +134,7 @@ export default function PatientTestDashboard() {
             await invoke("start_reading_from_port", { portName, baudRate: baud_rate_default });
             console.log(portName, sampleType)
             toast.dismiss();
-            toast.success(`Test for ${sampleType} cells initiated.`);
+            toast.success(`Test for ${device_name.toLowerCase().includes("glucose") ? "Glucose" : sampleType} initiated.`);
         } catch (err: any) {
             toast.dismiss();
             toast.error(`Failed to start test on ${portName}: ${err.message || String(err)}`);
@@ -176,6 +207,10 @@ export default function PatientTestDashboard() {
         return false;
     };
  
+
+    useEffect(() => {
+        console.log("Glucose reading: ", glucoseReading)
+    }, [glucoseReading])
     useEffect(() => {
         let unlistenData: UnlistenFn | undefined;
         let unlistenCycle: UnlistenFn | undefined;
@@ -201,29 +236,59 @@ export default function PatientTestDashboard() {
         (async () => {
             
              unlistenData = await listen<{ port: string; data: string }>("arduino-data", (e) => {
-            const line = e.payload.data.trim();
-            if (!line) return;
+                const line = e.payload.data.trim();
+                if (!line) return;
 
-            // 1. Log to console for debugging
-            const now = new Date();
-            const timestamp = now.toTimeString().slice(0, 8);
-            const stamped = `[${timestamp}.${String(now.getMilliseconds()).padStart(3, "0")}] ${line}`;
-            
-            setConsoleLines((prev) => [...prev.slice(-100), stamped]);
-            consoleLinesRef.current = [...consoleLinesRef.current.slice(-100), stamped];
+                // 1. Log to console for debugging
+                const now = new Date();
+                const timestamp = now.toTimeString().slice(0, 8);
+                const stamped = `[${timestamp}.${String(now.getMilliseconds()).padStart(3, "0")}] ${line}`;
+                
+                setConsoleLines((prev) => [...prev.slice(-100), stamped]);
+                consoleLinesRef.current = [...consoleLinesRef.current.slice(-100), stamped];
 
-            // 2. Extract any number (e.g., 0.0000 or 1.1046)
-            const voltageMatch = line.match(/(\d+\.\d+)/);
-            
-            if (voltageMatch) {
-                const voltage = parseFloat(voltageMatch[1]);
-                const newReading = { time: timestamp, value: voltage };
+                // 2. Extract any number (e.g., 0.0000 or 1.1046)
+                const voltageMatch = line.match(/(\d+\.\d+)/);
+                const device = devices.find(d => d.port === e.payload.port);
+                const role = device?.custom_name;
 
-                // Update chart: keep last 50 points for a smooth scroll
-                chartDataRef.current = [...chartDataRef.current.slice(-49), newReading];
-                setChartData(chartDataRef.current);
-            }
-        });
+                if (role === ROLE_GLUCOSE) {
+                    if (line.includes("NO_FINGER")) {
+                        setIsFingerPlaced(false);
+                        glucoseBufferRef.current = []; // Clear buffer if finger is removed
+                        return;
+                    }
+
+                    const segments = line.split(',');
+                    if (segments.length >= 3) {
+                        const concentration = parseFloat(segments[1]); // The 180.0 value
+                        const status = segments[2].trim();             // The "HIGH" value
+
+                        if (!isNaN(concentration)) {
+                            setIsFingerPlaced(true);
+                            glucoseBufferRef.current.push(concentration);
+
+                            // Average every 5 readings for UI stability
+                            if (glucoseBufferRef.current.length >= 5) {
+                                const avg = glucoseBufferRef.current.reduce((a, b) => a + b, 0) / 5;
+                                setGlucoseReading(Math.floor(avg));
+                                setGlucoseStatus(status);
+                                glucoseBufferRef.current = []; // Reset buffer
+                            }
+                        }
+                    }
+                }
+                
+                
+                if (voltageMatch && role === ROLE_CANCER) {
+                    const voltage = parseFloat(voltageMatch[1]);
+                    const newReading = { time: timestamp, value: voltage };
+
+                    // Update chart: keep last 50 points for a smooth scroll
+                    chartDataRef.current = [...chartDataRef.current.slice(-49), newReading];
+                    setChartData(chartDataRef.current);
+                }
+            });
     
             // --- Cycle complete (Store readings + toast) ---
             unlistenCycle = await listen<{ port: string }>("arduino-cycle-complete", (e) => {
@@ -237,6 +302,7 @@ export default function PatientTestDashboard() {
                     next.delete(e.payload.port);
                     return next;
                 });
+
                 
                 if (role === ROLE_CANCER) {
                     // Extract and store the final 'OFF' voltages from the latest console run
@@ -257,8 +323,6 @@ export default function PatientTestDashboard() {
                     // Reset chart after cycle complete for next run clarity
                     setChartData([]);
                     chartDataRef.current = [];
-                } else if(role === ROLE_GLUCOSE) {
-                    // to be implemented
                 }
             });
             
@@ -307,7 +371,7 @@ export default function PatientTestDashboard() {
     const handleSave = async () => {
         if (!patientData) return;
         
-        if (normalCellReadings.length === 0 && cancerCellReadings.length === 0) {
+        if (normalCellReadings.length === 0 && cancerCellReadings.length === 0 && glucoseReading == null) {
             toast.error("Acquire data for at least one sample type before saving.");
             return;
         }
@@ -324,6 +388,8 @@ export default function PatientTestDashboard() {
                 reference: JSON.stringify({ voltage_off: normalCellReadings }),
                 cancer_tests: JSON.stringify({ voltage_off: cancerCellReadings }),
             };
+
+            console.log(admissionDataToSave)
 
             await invoke("save_admission", { data: admissionDataToSave });
 
@@ -400,7 +466,12 @@ export default function PatientTestDashboard() {
         } else if (type === "cancer") {
             setCancerCellReadings([]);
             toast.success("Cancer cell readings cleared.", { icon: '🗑️' });
-        }
+        } else if (type === "glucose") {
+            setGlucoseReading(null);
+            setGlucoseStatus("");
+            glucoseBufferRef.current = [];
+            toast.success("Glucose reading reset.");
+        }   
     };
 
 
@@ -430,7 +501,10 @@ return (
             <aside className="device-sidebar">
             <div className="sidebar-content-wrapper">
                 <div className="sidebar-header">
-                <h3>Connected Devices</h3>
+                <h3 className="sidebar-header">
+                    <span className={`step-badge ${modeSelected ? 'complete' : ''}`}>2. </span> 
+                    Connected Devices
+                </h3>
                 <span className="device-count">{connectedDevices.length} Active</span>
                 </div>
 
@@ -448,12 +522,11 @@ return (
                             </div>
 
                             <Button
-                            label={isReading ? "Reading..." : "Acquire Data"}
-                            icon={isReading ? "pi pi-spin pi-spinner" : "pi pi-play"}
-                            disabled={isReading}
-                            className="p-button-sm acquire-btn"
-                            severity={isReading ? "secondary" : "info"}
-                            onClick={() => startTestCycle(d.port)}
+                                label={!modeSelected ? "Select Mode First" : isReading ? "Reading..." : "Acquire Data"}
+                                icon={isReading ? "pi pi-spin pi-spinner" : "pi pi-play"}
+                                disabled={isReading || !modeSelected} // Disable until Step 1 is done
+                                className={`p-button-sm acquire-btn ${!modeSelected ? 'pulse-highlight' : ''}`}
+                                onClick={() => startTestCycle(d.port, d.custom_name)}
                             />
                         </div>
                         );
@@ -467,7 +540,7 @@ return (
                         severity="success"
                         className="w-full save-report-btn"
                         onClick={handleSave}
-                        disabled={isSaving || (normalCellReadings.length === 0 && cancerCellReadings.length === 0)}
+                        disabled={isSaving || (normalCellReadings.length === 0 && cancerCellReadings.length === 0 && glucoseReading == null )}
                         />
                     </div>
                     </>
@@ -486,7 +559,26 @@ return (
             {/* MAIN CONTENT: Mode Selection + Streaming Console */}
             <section className="content-area">
                 {/* TOP STAT PANELS (Existing) */}
-                
+                {/* REPLACE the global-ref stat-panel div with this, placed ABOVE .stats-overview-grid */}
+                {/* <div className="calibration-bar">
+                    <div className="cal-bar-left">
+                        <FaWrench className="cal-icon" />
+                        <span className="cal-label">System Baseline</span>
+                        <span className={`cal-value ${!globalReference ? 'cal-warning' : ''}`}>
+                            {globalReference ? `${globalReference.voltage.toFixed(4)} V` : "NOT SET"}
+                        </span>
+                        <span className="cal-meta">
+                            {globalReference 
+                                ? `Last set: ${new Date(globalReference.timestamp).toLocaleDateString()}` 
+                                : 'Calibration required — run a Normal Cell cycle first'}
+                        </span>
+                    </div>
+                    {avgNormalVoltage > 0 && (
+                        <button className="mini-calibrate-btn" onClick={handleSetAsGlobalReference}>
+                            ↑ Update Baseline
+                        </button>
+                    )}
+                </div> */}
                 <div className="stats-overview-grid">
                     {/* Normal Reference Panel */}
                     <div className={`stat-panel normal ${normalCellReadings.length > 0 ? 'populated' : ''}`}>
@@ -523,27 +615,45 @@ return (
                                     <button className="mini-clear-btn" onClick={() => handleClearReadings("cancer")}>Reset</button>
                                 )}
                             </div>
+                            
                         </div>
                     </div>
 
                     {/* Glucose Monitoring Panel */}
-                    <div className={`stat-panel glucose ${glucoseReading !== null ? 'populated' : ''}`}>
-                        <div className="stat-icon  stat-glucose-icon">
-                            <FaDroplet />
+                    {/* Glucose Monitoring Panel */}
+                    <div className={`stat-panel glucose-standalone ${glucoseReading !== null ? 'populated' : ''}`}>
+                        <div className="stat-icon stat-glucose-icon">
+                            <FaDroplet className={!isFingerPlaced ? "pulse-warning" : ""} />
                         </div>
                         <div className="stat-content">
-                            <label>Glucose Level</label>
+                            <div className="module-badge">IR Analysis</div>
+                            <label>Blood Glucose Level</label>
+                            
                             <div className="stat-value">
-                                {glucoseReading !== null ? glucoseReading.toFixed(2) : "0.00"}
-                                <span className="unit"> mg/dL</span>
+                                {!isFingerPlaced ? (
+                                    <span className="text-warning animate-pulse" style={{ fontSize: '0.9rem' }}>INSERT FINGER</span>
+                                ) : (
+                                    <>
+                                        <span style={{ color: glucoseStatus === 'HIGH' ? '#ef4444' : 'inherit' }}>
+                                            {glucoseReading !== null ? glucoseReading.toFixed(1) : "---"}
+                                        </span>
+                                        <span className="unit"> mg/dL</span>
+                                    </>
+                                )}
                             </div>
+
                             <div className="stat-footer">
-                                <span>{glucoseReading !== null ? '1 Test' : 'No Data'}</span>
+                                {/* Show sampling progress or the HIGH/NORMAL flag */}
+                                {isFingerPlaced && glucoseReading === null && glucoseBufferRef.current.length > 0 ? (
+                                    <span className="sampling-text">Analyzing... {glucoseBufferRef.current.length}/5</span>
+                                ) : (
+                                    <span className={`status-tag ${glucoseStatus.toLowerCase()}`}>
+                                        {glucoseStatus || (isFingerPlaced ? "Ready" : "Waiting")}
+                                    </span>
+                                )}
+
                                 {glucoseReading !== null && (
-                                    <button 
-                                        className="mini-clear-btn" 
-                                        onClick={() => handleClearReadings("glucose")}
-                                    >
+                                    <button className="mini-clear-btn" onClick={() => handleClearReadings("glucose")}>
                                         Reset
                                     </button>
                                 )}
@@ -557,16 +667,29 @@ return (
                     
                     {/* LEFT HALF: COMMAND & CONSOLE */}
                     <div className="control-console-panel">
-                        <h2 className="mode-section-title">Choose Testing Mode</h2>
+                        <h2 className="mode-section-title">
+                            <span className={`step-badge ${modeSelected ? 'complete' : ''}`}>1. </span> 
+                            Choose Testing Mode {"\u2192"} Click Acquire Data
+                        </h2>
                         <div className="mode-toggle-container">
                             <label className={`mode-pill normal ${sampleType === 'normal' ? 'active' : ''}`}>
-                                <input type="radio" onChange={() => setSampleType('normal')} checked={sampleType === 'normal'} />
+                                <input type="radio"
+                                    onChange={() => {
+                                        setSampleType('normal');
+                                        setModeSelected(true);
+                                    }}
+                                checked={sampleType === 'normal'} />
                                 <i className="pi pi-shield"></i>
                                 <span>Normal Cell Mode</span>
                             </label>
                             
                             <label className={`mode-pill cancer ${sampleType === 'cancer' ? 'active' : ''}`}>
-                                <input type="radio" onChange={() => setSampleType('cancer')} checked={sampleType === 'cancer'} />
+                                <input type="radio" 
+                                    onChange={() => {
+                                        setSampleType('cancer');
+                                        setModeSelected(true);
+                                    }}
+                                checked={sampleType === 'cancer'} />
                                 <i className="pi pi-search-plus"></i>
                                 <span>Cancer Cell Mode</span>
                             </label>

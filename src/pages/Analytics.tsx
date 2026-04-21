@@ -7,6 +7,7 @@ import {
     Bar,
     CartesianGrid,
     XAxis,
+    ErrorBar,
     YAxis,
     Tooltip,
     ResponsiveContainer,
@@ -42,6 +43,10 @@ interface AggregateChartData {
     name: string;
     avg_cancer_voltage: number;   // Average voltage from cancer_tests (blue bar)
     avg_reference_voltage: number; // Average voltage from reference (new bar)
+
+    cancer_dev?: number; 
+    ref_dev?: number;
+    cumulativeAvg?: number;
 }
 
 // NEW HELPER: Function to calculate the average voltage from a JSON string
@@ -69,10 +74,8 @@ function getAdmissionAverage(
     const avgCancer = calculateAverageVoltage(admission?.cancer_tests);
     const avgReference = calculateAverageVoltage(admission?.reference);
 
-    // Only return data if there is at least *one* valid average to plot
     if (avgCancer === null && avgReference === null) return null;
 
-    // Create a unique name with admission_id and full timestamp
     const date = new Date(admission.timestamp);
     const uniqueName = `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { 
         hour: '2-digit', 
@@ -81,9 +84,11 @@ function getAdmissionAverage(
 
     return {
         name: uniqueName,
-        // Default to 0 if data is missing, to allow plotting the other bar
         avg_cancer_voltage: avgCancer ?? 0, 
         avg_reference_voltage: avgReference ?? 0,
+        // Ensure you calculate or retrieve these values here
+        cancer_dev: 0, // Replace with your actual standard deviation/MAD calculation
+        ref_dev: 0     // Replace with your actual standard deviation/MAD calculation
     };
 }
 
@@ -102,6 +107,7 @@ export default function Analytics() {
     const [totalRecords, setTotalRecords] = useState(0);
     const [globalStats, setGlobalStats] = useState({ avg_cancer: 0, avg_reference: 0 });
     const [chartAdmissions, setChartAdmissions] = useState<AdmissionRecord[]>([]);
+    const [diabetesReading, setDiabetesReading] = useState<number[]>([]);
     const [visibleMetrics, setVisibleMetrics] = useState({
         avg_reference_voltage: true,
         avg_cancer_voltage: true,
@@ -132,7 +138,8 @@ export default function Analytics() {
         setLoading(true);
 
         try {
-            const [tableResults, count, globalStatsData, chartResults] = await Promise.all([
+            console.log("The patient id is: ", patientId)
+            const [tableResults, count, globalStatsData, chartResults, dbReading] = await Promise.all([
                 // Data for the TABLE (Paginated)
                 invoke<AdmissionRecord[]>("search_admissions_by_patient", { 
                     query: searchQuery, limit: currentRows, offset: currentFirst 
@@ -142,12 +149,18 @@ export default function Analytics() {
                 // Data for STAT CARDS (Global)
                 invoke<any>("get_global_admission_stats", { query: searchQuery }),
                 // Data for the CHART (Always latest 5)
-                invoke<AdmissionRecord[]>("get_latest_5_admissions", { query: searchQuery })
+                invoke<AdmissionRecord[]>("get_latest_5_admissions", { query: searchQuery }),
+                
+                invoke<number[]>("get_patient_diabetes_tests", { 
+                    patientId: patientId 
+                })
             ]);
 
+            console.log("The diabtetes reading is: ", dbReading);
             setAdmissions(tableResults);
             setTotalRecords(count);
             setGlobalStats(globalStatsData);
+            setDiabetesReading(dbReading)
             setChartAdmissions(chartResults); // This ensures the chart stays consistent
         } catch (err) {
             console.error("Search failed:", err);
@@ -335,27 +348,23 @@ export default function Analytics() {
     const latestAdmission = admissions[0]; // Assuming index 0 is newest
     const latestAvg = getAdmissionAverage(latestAdmission);
    
+
     const chartDataWithCumulativeTrend = useMemo(() => {
-    // 1. Keep the data in the order fetched (Newest -> Oldest)
-    const newestToOldest = chartAdmissions
+    return chartAdmissions
         .map(getAdmissionAverage)
-        .filter((d): d is AggregateChartData => d !== null);
-
-    let runningTotal = 0;
-    
-    return newestToOldest.map((item, index) => {
-        runningTotal += item.avg_cancer_voltage;
-        // Cumulative average from the newest point backwards
-        const cumulativeAvg = runningTotal / (index + 1);
-
-        return {
-            ...item,
-            cumulativeAvg: parseFloat(cumulativeAvg.toFixed(4))
-        };
-    });
+        .filter((d): d is NonNullable<ReturnType<typeof getAdmissionAverage>> => d !== null)
+        .map((item, index, arr) => {
+            // Your existing cumulative logic
+            const runningTotal = arr.slice(0, index + 1).reduce((sum, i) => sum + i.avg_cancer_voltage, 0);
+            return {
+                ...item,
+                cumulativeAvg: parseFloat((runningTotal / (index + 1)).toFixed(4)),
+                // Use the calculated MAD for the whiskers
+                cancer_deviation: item.cancer_dev, 
+                ref_deviation: item.ref_dev
+            };
+        });
 }, [chartAdmissions]);
-
-
 
     const rollingStats = useMemo(() => {
         if (chartAdmissions.length === 0) return { cancer: 0, reference: 0 };
@@ -375,7 +384,7 @@ export default function Analytics() {
     }, [chartAdmissions]);
 
     
-   
+    
 
     return (
         <div className="analytics-container">
@@ -428,6 +437,7 @@ export default function Analytics() {
             ) : (
                 <>
                     {/* Stats Panel (Unchanged) */}
+                    {/* --- Stats Panel --- */}
                     <div className="stats-panel">
                         <div className="stat-card analytics-stat">
                             <span className="stat-icon"><FaTimes /></span>
@@ -436,26 +446,28 @@ export default function Analytics() {
                                 <p className="stat-label">Total Admissions</p>
                             </div>
                         </div>
-                       
+                        
+                        {/* REPLACED: Doctors Involved with Latest Diabetes Reading */}
                         <div className="stat-card analytics-stat">
-                            <span className="stat-icon"><FaUserMd /></span>
+                            <span className="stat-icon"><FaVial /></span>
                             <div className="stat-info">
-                                <p className="stat-value">{stats.doctorCount}</p>
-                                <p className="stat-label">Doctors Involved</p>
+                                <p className="stat-value">
+                                    {diabetesReading.length
+                                        ? `${diabetesReading} mg/dL`
+                                        : "N/A"}
+                                </p>
+                                <p className="stat-label">Latest Blood Sugar</p>
                             </div>
                         </div>
                         
                         <div className="stat-card stat-card-cancer analytics-stat">
                             <span className="stat-icon">C</span>
                             <div className="stat-info">
-                                {/* Wrap everything in a flex container to align them horizontally */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <p className="stat-value" style={{ margin: 0 }}>
                                         {globalStats.avg_cancer.toFixed(4)}
-                                        
                                     </p>
                                 </div>
-                                
                                 <p className="stat-label">Global Avg Cancer V</p>
                             </div>
                         </div>
@@ -463,7 +475,6 @@ export default function Analytics() {
                         <div className="stat-card stat-card-reference analytics-stat"> 
                             <span className="stat-icon">R</span>
                             <div className="stat-info">
-                                {/* Use globalStats instead of stats */}
                                 <p className="stat-value">{globalStats.avg_reference.toFixed(4)}</p>
                                 <p className="stat-label">Global Avg Reference V</p>
                             </div>
@@ -515,22 +526,37 @@ export default function Analytics() {
                                         {/* Reference Bars */}
                                         <Bar 
                                             dataKey="avg_reference_voltage" 
-                                            hide={!visibleMetrics.avg_reference_voltage} // Logic to hide
+                                            hide={!visibleMetrics.avg_reference_voltage}
                                             fill="#4bc0c0" 
                                             name="Ref Avg V" 
                                             barSize={20} 
                                             radius={[4, 4, 0, 0]} 
-                                        />
-                                        
-                                        {/* Cancer Bars */}
+                                        >
+                                            <ErrorBar 
+                                                dataKey="ref_dev" 
+                                                width={4} 
+                                                strokeWidth={2} 
+                                                stroke="#368a8a" 
+                                                direction="y" 
+                                            />
+                                        </Bar>
+
                                         <Bar 
                                             dataKey="avg_cancer_voltage" 
-                                            hide={!visibleMetrics.avg_cancer_voltage} // Logic to hide
+                                            hide={!visibleMetrics.avg_cancer_voltage}
                                             fill="#007bff" 
                                             name="Cancer Test Avg V" 
                                             barSize={20} 
                                             radius={[4, 4, 0, 0]} 
-                                        />
+                                        >
+                                            <ErrorBar 
+                                                dataKey="cancer_dev" 
+                                                width={4} 
+                                                strokeWidth={2} 
+                                                stroke="#004a99" 
+                                                direction="y" 
+                                            />
+                                        </Bar>
 
                                        
                                     </ComposedChart>
